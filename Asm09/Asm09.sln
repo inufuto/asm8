@@ -1,0 +1,37 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.31729.503
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Asm09", "Asm09.csproj", "{ED32417E-69B2-4274-89F0-7F869FAA2BBB}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Language", "..\Language\Language.csproj", "{419B4746-A55D-4FA5-87C0-0670EF2F93B3}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Assembler", "..\Assembler\Assembler.csproj", "{508B6487-B22B-4EB0-9536-542DC7BCC258}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{ED32417E-69B2-4274-89F0-7F869FAA2BBB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{ED32417E-69B2-4274-89F0-7F869FAA2BBB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{ED32417E-69B2-4274-89F0-7F869FAA2BBB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{ED32417E-69B2-4274-89F0-7F869FAA2BBB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{419B4746-A55D-4FA5-87C0-0670EF2F93B3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{419B4746-A55D-4FA5-87C0-0670EF2F93B3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{419B4746-A55D-4FA5-87C0-0670EF2F93B3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{419B4746-A55D-4FA5-87C0-0670EF2F93B3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{508B6487-B22B-4EB0-9536-542DC7BCC258}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{508B6487-B22B-4EB0-9536-542DC7BCC258}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{508B6487-B22B-4EB0-9536-542DC7BCC258}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{508B6487-B22B-4EB0-9536-542DC7BCC258}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {9F87E7E5-9CC5-405C-8452-B7F891478F36}
+	EndGlobalSection
+EndGlobal
