@@ -13,4 +13,4 @@ This repository contains following Visual Studio Solutions:
 |Asm09.sln|assembler for 6809|
 |LikeLE.sln|linker for little endian CPU|
 |LikeBE.sln|linker for big endian CPU|
-|Lib8.sln|assembler for 6809|
+|Lib8.sln|librarian|
