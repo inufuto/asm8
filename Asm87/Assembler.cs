@@ -793,13 +793,13 @@ namespace Inu.Assembler.MuCom87
             NextToken();
         }
 
-        private void WEndStatement(int code1, int code2)
+        private void RepeatStatement()
         {
             if (LastBlock() is WhileBlock block) {
                 if (block.EndId > 0) {
                     DefineSymbol(block.RepeatId, CurrentAddress);
                     Address address = SymbolAddress(block.BeginId);
-                    ConditionalJump(code1, code2, address);
+                    RelativeJumpShort(LastToken, address);
                     DefineSymbol(block.EndId, CurrentAddress);
                 }
                 EndBlock();
@@ -1275,17 +1275,8 @@ namespace Inu.Assembler.MuCom87
                 case Inu.Assembler.Keyword.WEnd:
                     WEndStatement();
                     return true;
-                case Keyword.WHC:
-                    WEndStatement(0x48, 0x1a);
-                    return true;
-                case Keyword.WHNC:
-                    WEndStatement(0x48, 0x0a);
-                    return true;
-                case Keyword.WHZ:
-                    WEndStatement(0x48, 0x1c);
-                    return true;
-                case Keyword.WHNZ:
-                    WEndStatement(0x48, 0x0c);
+                case Keyword.REPEAT:
+                    RepeatStatement();
                     return true;
                 default:
                     return SkipInstruction(reservedWord.Id);

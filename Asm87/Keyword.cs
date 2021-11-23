@@ -126,57 +126,54 @@ namespace Inu.Assembler.MuCom87
         public const int RAR = MinId + 117;
         public const int RCL = MinId + 118;
         public const int RCR = MinId + 119;
-        public const int RET = MinId + 120;
-        public const int RETI = MinId + 121;
-        public const int RETS = MinId + 122;
-        public const int RLD = MinId + 123;
-        public const int RRD = MinId + 124;
-        public const int S = MinId + 125;
-        public const int SBB = MinId + 126;
-        public const int SBBW = MinId + 127;
-        public const int SBBX = MinId + 128;
-        public const int SBCD = MinId + 129;
-        public const int SBI = MinId + 130;
-        public const int SDED = MinId + 131;
-        public const int SHAL = MinId + 132;
-        public const int SHAR = MinId + 133;
-        public const int SHCL = MinId + 134;
-        public const int SHCR = MinId + 135;
-        public const int SHLD = MinId + 136;
-        public const int SIO = MinId + 137;
-        public const int SKC = MinId + 138;
-        public const int SKIT = MinId + 139;
-        public const int SKNC = MinId + 140;
-        public const int SKNIT = MinId + 141;
-        public const int SKNZ = MinId + 142;
-        public const int SKZ = MinId + 143;
-        public const int SOFTI = MinId + 144;
-        public const int SP = MinId + 145;
-        public const int SSPD = MinId + 146;
-        public const int STAW = MinId + 147;
-        public const int STAX = MinId + 148;
-        public const int STC = MinId + 149;
-        public const int STM = MinId + 150;
-        public const int SUB = MinId + 151;
-        public const int SUBNB = MinId + 152;
-        public const int SUBNBW = MinId + 153;
-        public const int SUBNBX = MinId + 154;
-        public const int SUBW = MinId + 155;
-        public const int SUBX = MinId + 156;
-        public const int SUI = MinId + 157;
-        public const int SUINB = MinId + 158;
-        public const int TABLE = MinId + 159;
-        public const int TM0 = MinId + 160;
-        public const int TM1 = MinId + 161;
-        public const int V = MinId + 162;
-        public const int WHC = MinId + 163;
-        public const int WHNC = MinId + 164;
-        public const int WHNZ = MinId + 165;
-        public const int WHZ = MinId + 166;
-        public const int XRA = MinId + 167;
-        public const int XRAW = MinId + 168;
-        public const int XRAX = MinId + 169;
-        public const int XRI = MinId + 170;
+        public const int REPEAT = MinId + 120;
+        public const int RET = MinId + 121;
+        public const int RETI = MinId + 122;
+        public const int RETS = MinId + 123;
+        public const int RLD = MinId + 124;
+        public const int RRD = MinId + 125;
+        public const int S = MinId + 126;
+        public const int SBB = MinId + 127;
+        public const int SBBW = MinId + 128;
+        public const int SBBX = MinId + 129;
+        public const int SBCD = MinId + 130;
+        public const int SBI = MinId + 131;
+        public const int SDED = MinId + 132;
+        public const int SHAL = MinId + 133;
+        public const int SHAR = MinId + 134;
+        public const int SHCL = MinId + 135;
+        public const int SHCR = MinId + 136;
+        public const int SHLD = MinId + 137;
+        public const int SIO = MinId + 138;
+        public const int SKC = MinId + 139;
+        public const int SKIT = MinId + 140;
+        public const int SKNC = MinId + 141;
+        public const int SKNIT = MinId + 142;
+        public const int SKNZ = MinId + 143;
+        public const int SKZ = MinId + 144;
+        public const int SOFTI = MinId + 145;
+        public const int SP = MinId + 146;
+        public const int SSPD = MinId + 147;
+        public const int STAW = MinId + 148;
+        public const int STAX = MinId + 149;
+        public const int STC = MinId + 150;
+        public const int STM = MinId + 151;
+        public const int SUB = MinId + 152;
+        public const int SUBNB = MinId + 153;
+        public const int SUBNBW = MinId + 154;
+        public const int SUBNBX = MinId + 155;
+        public const int SUBW = MinId + 156;
+        public const int SUBX = MinId + 157;
+        public const int SUI = MinId + 158;
+        public const int SUINB = MinId + 159;
+        public const int TABLE = MinId + 160;
+        public const int TM0 = MinId + 161;
+        public const int TM1 = MinId + 162;
+        public const int V = MinId + 163;
+        public const int XRA = MinId + 164;
+        public const int XRAW = MinId + 165;
+        public const int XRAX = MinId + 166;
+        public const int XRI = MinId + 167;
 
         public new static readonly Dictionary<int, string> Words = new Dictionary<int, string>()
         {
@@ -300,6 +297,7 @@ namespace Inu.Assembler.MuCom87
             { RAR,"RAR"},
             { RCL,"RCL"},
             { RCR,"RCR"},
+            { REPEAT,"REPEAT"},
             { RET,"RET"},
             { RETI,"RETI"},
             { RETS,"RETS"},
@@ -343,10 +341,6 @@ namespace Inu.Assembler.MuCom87
             { TM0,"TM0"},
             { TM1,"TM1"},
             { V,"V"},
-            { WHC,"WHC"},
-            { WHNC,"WHNC"},
-            { WHNZ,"WHNZ"},
-            { WHZ,"WHZ"},
             { XRA,"XRA"},
             { XRAW,"XRAW"},
             { XRAX,"XRAX"},
