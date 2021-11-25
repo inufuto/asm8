@@ -1,12 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
 using Inu.Language;
 
 namespace Inu.Assembler.MuCom87
 {
-    class Assembler : Inu.Assembler.LittleEndianAssembler
+    public class Assembler : LittleEndianAssembler
     {
         public Assembler() : base(new Tokenizer()) { }
 
@@ -17,6 +15,11 @@ namespace Inu.Assembler.MuCom87
             if (value == null) {
                 ShowSyntaxError(token);
                 value = new Address(0);
+            }
+            var high = value.High();
+            if (value.Part == AddressPart.HighByte && high != null) {
+                WriteByte(token, high);
+                return;
             }
             var low = value.Low();
             if (low != null) {
@@ -558,7 +561,7 @@ namespace Inu.Assembler.MuCom87
                 }
                 if (offset <= 0 && offset > -0x100) {
                     WriteByte(0x4f);
-                    WriteByte(-offset.Value);
+                    WriteByte(offset.Value);
                     return;
                 }
             }
@@ -964,6 +967,8 @@ namespace Inu.Assembler.MuCom87
             return false;
         }
 
+
+        public override bool ZeroPageAvailable => true;
 
         protected override bool Instruction()
         {
