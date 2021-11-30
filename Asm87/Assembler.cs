@@ -247,7 +247,7 @@ namespace Inu.Assembler.MuCom87
         {
             if (!(LastToken is ReservedWord reservedWord)) return null;
             var interrupts = new[]
-                { Keyword.F0, Keyword.F1, Keyword.F2, Keyword.FT, Keyword.FS };
+                { Keyword.F0, Keyword.FT, Keyword.F1, Keyword.F2, Keyword.FS };
             for (var i = 0; i < interrupts.Length; ++i) {
                 if (interrupts[i] != reservedWord.Id) continue;
                 NextToken();
