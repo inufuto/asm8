@@ -94,20 +94,19 @@ namespace Inu.Linker
                     }
                 }
 
-                foreach (var library in libraries) {
-                    var objects = new HashSet<Object>();
+                {
+                    restart:
                     foreach (var external in externals.Select(pair => pair.Value)) {
                         if (symbols.TryGetValue(external.Id, out _))
                             continue;
                         var name = identifiers.FromId(external.Id);
                         Debug.Assert(name != null);
-                        var obj = library.NameToObject(name);
-                        if (obj == null)
-                            continue;
-                        objects.Add(obj);
-                    }
-                    foreach (var @object in objects) {
-                        ReadObject(@object);
+                        var objects = libraries.Select(l => l.NameToObject(name)).Where(o => o != null);
+                        foreach (var @object in objects) {
+                            Debug.Assert(@object != null);
+                            ReadObject(@object);
+                            goto restart;
+                        }
                     }
                 }
 

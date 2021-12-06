@@ -1,4 +1,4 @@
-﻿################################################################################
+################################################################################
 # この .gitignore ファイルは Microsoft(R) Visual Studio によって自動的に作成されました。
 ################################################################################
 
@@ -54,3 +54,5 @@
 /Asm87/Properties/PublishProfiles
 /Asm87/bin/Release/netcoreapp3.1
 /Asm87/Properties/launchSettings.json
+/Lib8/Properties/launchSettings.json
+LinkLE/Properties/launchSettings.json

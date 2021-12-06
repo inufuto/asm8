@@ -40,7 +40,9 @@ namespace Inu.Library
         {
             Objects.Add(obj);
             foreach (var symbol in obj.Symbols.Values.Where(symbol => symbol.Public)) {
-                symbols[symbol.Name] = obj;
+                if (symbol.Address.Type != AddressType.External) {
+                    symbols[symbol.Name] = obj;
+                }
             }
         }
 
