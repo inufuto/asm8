@@ -1,4 +1,4 @@
-﻿################################################################################
+################################################################################
 # この .gitignore ファイルは Microsoft(R) Visual Studio によって自動的に作成されました。
 ################################################################################
 
@@ -51,3 +51,9 @@
 /Asm65/.vs/Asm65/DesignTimeBuild
 /Asm09/.vs/Asm09/DesignTimeBuild/.dtbcache.v2
 /manuals/~$asm80.docx
+/Asm87/bin/Release/netcoreapp3.1
+Asm87/Properties/launchSettings.json
+Asm87/Properties/PublishProfiles/FolderProfile.pubxml
+Asm87/Properties/PublishProfiles/FolderProfile.pubxml.user
+Lib8/Properties/launchSettings.json
+/Asm68/.vs/Asm68
