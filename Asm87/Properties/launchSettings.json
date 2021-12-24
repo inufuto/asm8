@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "Asm87": {
+      "commandName": "Project",
+      "commandLineArgs": " WorkingReg.asm",
+      "workingDirectory": "D:\\8bit\\cate\\MuCom87"
+    }
+  }
+}
