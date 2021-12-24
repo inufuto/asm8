@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -10,6 +10,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Assembler\Assembler.csproj" />
     <ProjectReference Include="..\Language\Language.csproj" />
+    <ProjectReference Include="..\Object\Object.csproj" />
   </ItemGroup>
 
 </Project>
