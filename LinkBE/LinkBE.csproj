@@ -10,6 +10,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Language\Language.csproj" />
     <ProjectReference Include="..\Linker\Linker.csproj" />
+    <ProjectReference Include="..\Object\Object.csproj" />
   </ItemGroup>
 
 </Project>

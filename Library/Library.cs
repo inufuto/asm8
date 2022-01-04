@@ -1,8 +1,8 @@
-﻿using System.Collections.Generic;
+﻿using Inu.Assembler;
+using Inu.Language;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using Inu.Assembler;
-using Inu.Language;
 
 namespace Inu.Library
 {
@@ -10,7 +10,7 @@ namespace Inu.Library
     {
         public const string Extension = ".lib";
         private const int Version = 0x0100;
-        private static readonly List<Object> Objects = new List<Assembler.Object>();
+        private static readonly List<Assembler.Object> Objects = new List<Assembler.Object>();
 
         private readonly Dictionary<string, Assembler.Object> symbols = new Dictionary<string, Assembler.Object>();
 
