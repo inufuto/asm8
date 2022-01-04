@@ -7,8 +7,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Assembler\Assembler.csproj" />
+    <ProjectReference Include="..\Language\Language.csproj" />
     <ProjectReference Include="..\Library\Library.csproj" />
+    <ProjectReference Include="..\Object\Object.csproj" />
   </ItemGroup>
 
 </Project>
