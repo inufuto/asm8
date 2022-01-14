@@ -31,11 +31,10 @@ namespace Inu.Language
 
         public void ShowError(SourcePosition position, string error)
         {
-            if (!errors.ContainsKey(position)) {
-                string s = $"{position.ToString()}: {error}";
-                errors[position] = s;
-                Console.Error.WriteLine(s);
-            }
+            if (errors.ContainsKey(position)) return;
+            var s = $"{position.ToString()}: {error}";
+            errors[position] = s;
+            Console.Error.WriteLine(s);
         }
 
         public void ShowSyntaxError(Token token)
