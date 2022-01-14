@@ -330,7 +330,7 @@ namespace Inu.Assembler
                 return null;
             }
 
-            repeat:
+        repeat:
             {
                 if (LastToken is ReservedWord operatorToken) {
                     if (Binomials[level].TryGetValue(operatorToken.Id, out var operation)) {
@@ -378,7 +378,8 @@ namespace Inu.Assembler
                 ShowError(token.Position, "Missing filename.");
             }
         }
-        private void SegmentDirective(AddressType type)
+
+        protected void SegmentDirective(AddressType type)
         {
             CurrentSegment = @object.Segments[(int)type];
             Debug.Assert(listFile != null);
@@ -527,7 +528,13 @@ namespace Inu.Assembler
         {
             var reservedWord = LastToken as ReservedWord;
             Debug.Assert(reservedWord != null);
-            switch (reservedWord.Id) {
+            return Directive(reservedWord) || StorageDirective();
+        }
+
+        protected virtual bool Directive(ReservedWord reservedWord)
+        {
+            switch (reservedWord.Id)
+            {
                 case Keyword.Include:
                     IncludeDirective();
                     return true;
@@ -538,10 +545,12 @@ namespace Inu.Assembler
                     SegmentDirective(AddressType.Data);
                     return true;
                 case Keyword.ZSeg:
-                    if (ZeroPageAvailable) {
+                    if (ZeroPageAvailable)
+                    {
                         SegmentDirective(AddressType.ZeroPage);
                         return true;
                     }
+
                     break;
                 case Keyword.Public:
                     PublicDirective();
@@ -552,11 +561,11 @@ namespace Inu.Assembler
                     return true;
             }
 
-            return StorageDirective();
+            return false;
         }
 
 
-        protected static bool IsRelativeOffsetInRange(int offset) { return offset >= -128 && offset <= 128; }
+        protected virtual bool IsRelativeOffsetInRange(int offset) { return offset >= -128 && offset <= 128; }
         protected int RelativeOffset(Address address)
         {
             const int instructionLength = 2;

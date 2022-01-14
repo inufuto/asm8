@@ -36,7 +36,7 @@ namespace Inu.Assembler
 
         protected override void SkipSpaces()
         {
-            repeat:
+        repeat:
             base.SkipSpaces();
             if (LastChar == Comment) {
                 Debug.Assert(SourceReader.Current != null);
@@ -48,14 +48,19 @@ namespace Inu.Assembler
 
         protected sealed override bool IsNumericValueHead(char c)
         {
-            return c == HexValueHead || base.IsNumericValueHead(c);
+            return IsHexValueHead(c) || base.IsNumericValueHead(c);
+        }
+
+        protected virtual bool IsHexValueHead(char c)
+        {
+            return c == HexValueHead;
         }
 
         protected sealed override int ReadNumericValue()
         {
-            if (LastChar != HexValueHead) return ReadHexValue(out var value) ? value : ReadDecValue();
+            if (!IsHexValueHead(LastChar)) return ReadHexValue(out var value) ? value : ReadDecValue();
             NextChar();
-            StringBuilder chars = new StringBuilder();
+            var chars = new StringBuilder();
 
             var upper = char.ToUpper(LastChar);
             while (IsHexDigit(upper)) {
