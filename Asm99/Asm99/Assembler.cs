@@ -188,7 +188,7 @@ namespace Inu.Assembler.Tms99
 
         private bool SingleOperandInstruction()
         {
-            Dictionary<int, int> instructionCodes = new Dictionary<int, int>()
+            var instructionCodes = new Dictionary<int, int>()
             {
                 { Keyword.Abs, 0x0740 },
                 { Keyword.B, 0x0440 },
@@ -247,21 +247,21 @@ namespace Inu.Assembler.Tms99
                 { Keyword.Sbz, 0x1E00 },
                 { Keyword.Tb, 0x1F00 },
             };
-            //Dictionary<int, int> reverseConditions = new Dictionary<int, int>()
-            //{
-            //    { Keyword.Jeq, Keyword.Jne },
-            //    { Keyword.Jgt, 0 },
-            //    { Keyword.Jh, Keyword.Jle },
-            //    { Keyword.Jhe, Keyword.Jl },
-            //    { Keyword.Jl, Keyword.Jhe },
-            //    { Keyword.Jle, Keyword.Jh },
-            //    { Keyword.Jlt, 0 },
-            //    { Keyword.Jnc, Keyword.Joc },
-            //    { Keyword.Jne, Keyword.Jeq },
-            //    { Keyword.Jno, 0 },
-            //    { Keyword.Joc, Keyword.Jnc },
-            //    { Keyword.Jop, 0 },
-            //};
+            Dictionary<int, int[]> reverseConditions = new Dictionary<int, int[]>()
+            {
+                { Keyword.Jeq, new []{ Keyword.Jne } },
+                { Keyword.Jgt, new []{ Keyword.Jle, Keyword.Jeq } },
+                { Keyword.Jh, new [] { Keyword.Jle } },
+                { Keyword.Jhe, new [] { Keyword.Jl } },
+                { Keyword.Jl, new [] { Keyword.Jhe } },
+                { Keyword.Jle, new [] { Keyword.Jh } },
+                { Keyword.Jlt, new [] { Keyword.Jgt, Keyword.Jeq } },
+                { Keyword.Jnc, new [] { Keyword.Joc } },
+                { Keyword.Jne, new [] { Keyword.Jeq } },
+                { Keyword.Jno, Array.Empty<int>() },
+                { Keyword.Joc, new [] { Keyword.Jnc } },
+                { Keyword.Jop, Array.Empty<int>() },
+            };
 
             var reservedWord = LastToken as ReservedWord;
             Debug.Assert(reservedWord != null);
@@ -277,8 +277,34 @@ namespace Inu.Assembler.Tms99
                 return true;
             }
 
-            if (Pass > 1) {
-                ShowError(token.Position, "Out of range.");
+            if (!address.IsUndefined()) {
+                void WriteJump()
+                {
+                    WriteWord(
+                        (0x0680 |
+                         ((int)AddressingMode.SymbolicOrIndexed << 4))
+                    );
+                    WriteWord(LastToken, address);
+                }
+
+                // Out of range
+                if (instruction == 0x1000) {
+                    WriteJump();
+                    return true;
+                }
+                var reverseKeywords = reverseConditions[reservedWord.Id];
+                if (reverseKeywords.Length > 0) {
+                    var reversedOffset = reverseKeywords.Length;
+                    foreach (var reverseKeyword in reverseKeywords) {
+                        var reversedInstruction = instructionCodes[reverseKeyword];
+                        WriteWord(reversedInstruction | reversedOffset);
+                    }
+                    WriteJump();
+                    return true;
+                }
+                WriteWord(instruction | 1);
+                WriteWord(0x1000 | 2);
+                WriteJump();
             }
             return true;
         }
