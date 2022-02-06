@@ -228,7 +228,7 @@ namespace Inu.Assembler.Tms99
 
         private bool JumpInstruction()
         {
-            Dictionary<int, int> instructionCodes = new Dictionary<int, int>()
+            var instructionCodes = new Dictionary<int, int>()
             {
                 { Keyword.Jeq, 0x1300 },
                 { Keyword.Jgt, 0x1500 },
@@ -247,20 +247,16 @@ namespace Inu.Assembler.Tms99
                 { Keyword.Sbz, 0x1E00 },
                 { Keyword.Tb, 0x1F00 },
             };
-            Dictionary<int, int[]> reverseConditions = new Dictionary<int, int[]>()
+            var reverseConditions = new Dictionary<int, int>()
             {
-                { Keyword.Jeq, new []{ Keyword.Jne } },
-                { Keyword.Jgt, new []{ Keyword.Jle, Keyword.Jeq } },
-                { Keyword.Jh, new [] { Keyword.Jle } },
-                { Keyword.Jhe, new [] { Keyword.Jl } },
-                { Keyword.Jl, new [] { Keyword.Jhe } },
-                { Keyword.Jle, new [] { Keyword.Jh } },
-                { Keyword.Jlt, new [] { Keyword.Jgt, Keyword.Jeq } },
-                { Keyword.Jnc, new [] { Keyword.Joc } },
-                { Keyword.Jne, new [] { Keyword.Jeq } },
-                { Keyword.Jno, Array.Empty<int>() },
-                { Keyword.Joc, new [] { Keyword.Jnc } },
-                { Keyword.Jop, Array.Empty<int>() },
+                { Keyword.Jeq,  Keyword.Jne  },
+                { Keyword.Jh,  Keyword.Jle  },
+                { Keyword.Jhe,  Keyword.Jl  },
+                { Keyword.Jl,  Keyword.Jhe  },
+                { Keyword.Jle,  Keyword.Jh  },
+                { Keyword.Jnc,  Keyword.Joc  },
+                { Keyword.Jne,  Keyword.Jeq  },
+                { Keyword.Joc,  Keyword.Jnc  },
             };
 
             var reservedWord = LastToken as ReservedWord;
@@ -268,7 +264,6 @@ namespace Inu.Assembler.Tms99
             if (!instructionCodes.TryGetValue(reservedWord.Id, out var instruction)) { return false; }
             NextToken();
 
-            var token = LastToken;
             if (RelativeOffset(out var address, out var offset)) {
                 WriteWord(
                     instruction |
@@ -277,35 +272,31 @@ namespace Inu.Assembler.Tms99
                 return true;
             }
 
-            if (!address.IsUndefined()) {
-                void WriteJump()
-                {
-                    WriteWord(
-                        (0x0680 |
-                         ((int)AddressingMode.SymbolicOrIndexed << 4))
-                    );
-                    WriteWord(LastToken, address);
-                }
+            if (address.IsUndefined()) return true;
 
-                // Out of range
-                if (instruction == 0x1000) {
-                    WriteJump();
-                    return true;
-                }
-                var reverseKeywords = reverseConditions[reservedWord.Id];
-                if (reverseKeywords.Length > 0) {
-                    var reversedOffset = reverseKeywords.Length;
-                    foreach (var reverseKeyword in reverseKeywords) {
-                        var reversedInstruction = instructionCodes[reverseKeyword];
-                        WriteWord(reversedInstruction | reversedOffset);
-                    }
-                    WriteJump();
-                    return true;
-                }
-                WriteWord(instruction | 1);
-                WriteWord(0x1000 | 2);
-                WriteJump();
+            void WriteJump()
+            {
+                WriteWord(
+                    (0x0440 |
+                     ((int)AddressingMode.SymbolicOrIndexed << 4))
+                );
+                WriteWord(LastToken, address);
             }
+
+            // Out of range
+            if (instruction == 0x1000) {
+                WriteJump();
+                return true;
+            }
+            if (reverseConditions.TryGetValue(reservedWord.Id, out var reverseKeyword)) {
+                var reversedInstruction = instructionCodes[reverseKeyword];
+                WriteWord(reversedInstruction | 2);
+                WriteJump();
+                return true;
+            }
+            WriteWord(instruction | 1);
+            WriteWord(0x1000 | 2);
+            WriteJump();
             return true;
         }
 
@@ -545,7 +536,7 @@ namespace Inu.Assembler.Tms99
 
         private void ConditionalJump(Address address, bool not)
         {
-            Dictionary<int, JumpElement> conditionElements = new Dictionary<int, JumpElement>{
+            var conditionElements = new Dictionary<int, JumpElement>{
                 {
                     Keyword.Eq,
                     new JumpElement(0x1300, 0x1600)
@@ -596,7 +587,7 @@ namespace Inu.Assembler.Tms99
                 },
             };
 
-            Token token = LastToken;
+            var token = LastToken;
             if (token is ReservedWord reservedWord) {
                 if (!conditionElements.TryGetValue(reservedWord.Id, out var element)) {
                     ShowSyntaxError(token);
@@ -633,11 +624,11 @@ namespace Inu.Assembler.Tms99
                 if (falseInstructions.Length > 0) {
                     var offset = 4 + (falseInstructions.Length) * 2;
                     foreach (var instruction in falseInstructions) {
+                        offset -= 2;
                         WriteWord(
                             instruction |
                             (offset >> 1) & 0xff
                         );
-                        offset -= 2;
                     }
                     AbsoluteJump(address);
                 }

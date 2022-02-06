@@ -7,8 +7,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
-using Inu.Library;
-using Object = Inu.Assembler.Object;
+
 
 namespace Inu.Linker
 {
@@ -36,7 +35,7 @@ namespace Inu.Linker
             {AddressType.ZeroPage,"ZSEG"},
         };
 
-        private readonly Dictionary<AddressType, int> addresses = new Dictionary<AddressType, int>();
+        //private readonly Dictionary<AddressType, List<Segment>> addresses = new Dictionary<AddressType, List<Segment>>();
         private readonly Dictionary<AddressType, Segment> segments = new Dictionary<AddressType, Segment>();
         private string? targetName;
         private readonly StringTable identifiers = new StringTable(1);
@@ -76,7 +75,7 @@ namespace Inu.Linker
 
                 var libraries = new List<Library.Library>();
                 while (index < args.Count) {
-                    string objName = args[index++];
+                    var objName = args[index++];
                     //objNames.Add(objName);
                     var objDirectory = Path.GetDirectoryName(objName);
                     if (string.IsNullOrEmpty(objDirectory)) {
@@ -95,7 +94,7 @@ namespace Inu.Linker
                 }
 
                 foreach (var library in libraries) {
-                    var objects = new HashSet<Object>();
+                    var objects = new HashSet<Assembler.Object>();
                     foreach (var external in externals.Select(pair => pair.Value)) {
                         if (symbols.TryGetValue(external.Id, out _))
                             continue;
@@ -121,8 +120,8 @@ namespace Inu.Linker
 
                 SaveTargetFile(targetName);
 
-                string symbolFileName = directory + Path.DirectorySeparatorChar +
-                                        Path.GetFileNameWithoutExtension(targetName) + ".symbols.txt";
+                var symbolFileName = directory + Path.DirectorySeparatorChar +
+                                     Path.GetFileNameWithoutExtension(targetName) + ".symbols.txt";
                 SaveSymbolFile(symbolFileName);
 
                 return errors.Count <= 0 ? Success : Failure;
@@ -133,30 +132,46 @@ namespace Inu.Linker
             }
         }
 
-        private void ParseAddresses(List<string> args, ref int index)
+        private void ParseAddresses(IReadOnlyList<string> args, ref int index)
         {
             if (index >= args.Count) {
                 throw new Error("No code address.");
             }
-            addresses[AddressType.Code] = ParseAddress(args[index++]);
+            var arg0 = args[index++];
+            if (!ParseAddress(arg0, AddressType.Code)) {
+                throw new InvalidAddress(arg0);
+            }
 
             if (index >= args.Count) {
                 throw new Error("No data address.");
             }
-            addresses[AddressType.Data] = ParseAddress(args[index++]);
+            var arg1 = args[index++];
+            if (!ParseAddress(arg1, AddressType.Data)) {
+                throw new InvalidAddress(arg1);
+            }
 
-            if (index < args.Count && int.TryParse(args[index], NumberStyles.AllowHexSpecifier, null, out var zeroPageAddress)) {
-                addresses[AddressType.ZeroPage] = zeroPageAddress;
+            if (ParseAddress(args[index], AddressType.ZeroPage)) {
                 ++index;
             }
         }
 
-        protected int ParseAddress(string s)
+        protected bool ParseAddress(string s, AddressType addressType)
         {
-            if (!int.TryParse(s, NumberStyles.AllowHexSpecifier, null, out var address)) {
-                throw new InvalidAddress(s);
+            var elements = s.Split(',', StringSplitOptions.RemoveEmptyEntries);
+            foreach (var element in elements) {
+                var addressees = element.Split('-', StringSplitOptions.RemoveEmptyEntries);
+                if (addressees.Length <= 0) continue;
+                if (!int.TryParse(addressees[0], NumberStyles.AllowHexSpecifier, null, out var minAddress)) return false;
+                int? maxAddress = null;
+                if (addressees.Length > 1) {
+                    if (!int.TryParse(addressees[1], NumberStyles.AllowHexSpecifier, null, out var result)) {
+                        throw new InvalidAddress(s);
+                    }
+                    maxAddress = result;
+                }
+                segments[addressType].Add(minAddress, maxAddress);
             }
-            return address;
+            return true;
         }
 
         protected abstract byte[] ToBytes(int value);
@@ -167,7 +182,7 @@ namespace Inu.Linker
             Console.Error.WriteLine(error);
         }
 
-        private void RegisterSymbol(string name, Address address, Object obj)
+        private void RegisterSymbol(string name, Address address, Assembler.Object obj)
         {
             var id = identifiers.Add(name);
             if (symbols.TryGetValue(id, out var symbol)) {
@@ -190,20 +205,20 @@ namespace Inu.Linker
             Debug.Assert(SegmentAddressTypes.Contains(location.Type));
             Debug.Assert(SegmentAddressTypes.Contains(value.Type));
             var address = value.Value;
-            if (value.Type >= 0) {
-                address += addresses[value.Type];
-            }
+            //if (value.Type >= 0) {
+            //    address = segments[value.Type].FixedAddress(address);
+            //}
 
             var addedValue = address + offset;
             switch (part) {
                 case AddressPart.Word:
-                    segments[location.Type].WriteAddress(location.Value, ToBytes(addedValue));
+                    segments[location.Type].WriteWord(location.Value, ToBytes(addedValue));
                     break;
                 case AddressPart.LowByte:
-                    segments[location.Type].Bytes[location.Value] = (byte)(addedValue & 0xff);
+                    segments[location.Type].WriteByte(location.Value, (byte)(addedValue & 0xff));
                     break;
                 case AddressPart.HighByte:
-                    segments[location.Type].Bytes[location.Value] = (byte)((addedValue >> 8) & 0xff);
+                    segments[location.Type].WriteByte(location.Value, (byte)((addedValue >> 8) & 0xff));
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();
@@ -217,22 +232,22 @@ namespace Inu.Linker
                 return;
             }
 
-            var obj = new Object();
+            var obj = new Assembler.Object();
             obj.Load(fileName);
 
             ReadObject(obj);
         }
 
-        private void ReadObject(Object obj)
+        private void ReadObject(Assembler.Object obj)
         {
-            var offsets = new Dictionary<AddressType, int>();
+            var heads = new Dictionary<AddressType, int>();
             foreach (var objSegment in obj.Segments) {
-                offsets[objSegment.Type] = segments[objSegment.Type].Size;
                 segments[objSegment.Type].Append(objSegment);
+                heads[objSegment.Type] = segments[objSegment.Type].HeadAddress;
             }
             foreach (var objSymbol in obj.Symbols.Values) {
-                Address address = objSymbol.Address;
-                string name = objSymbol.Name;
+                var address = objSymbol.Address;
+                var name = objSymbol.Name;
                 switch (address.Type) {
                     case AddressType.Undefined:
                     case AddressType.External:
@@ -243,27 +258,29 @@ namespace Inu.Linker
                         break;
                     default:
                         Debug.Assert(SegmentAddressTypes.Contains(address.Type));
-                        address = address.Add(offsets[address.Type]);
+                        Debug.Assert(address != null);
+                        address = address.Add(heads[address.Type]);
                         RegisterSymbol(name, address, obj);
                         break;
                 }
             }
-
             foreach (var addressUsage in obj.AddressUsages) {
-                Address location = addressUsage.Key;
+                var location = addressUsage.Key;
                 Debug.Assert(SegmentAddressTypes.Contains(location.Type));
-                location = location.Add(offsets[location.Type]);
-                Address value = addressUsage.Value;
+                Debug.Assert(location != null);
+                location = location.Add(heads[location.Type]);
+                var value = addressUsage.Value;
                 if (value.Type == AddressType.External) {
                     Debug.Assert(value.Id != null);
-                    string name = obj.NameFromId(value.Id.Value);
+                    var name = obj.NameFromId(value.Id.Value);
                     var id = this.identifiers.Add(name);
                     externals[location] = new External(id, obj, value.Value, value.Part);
                 }
                 else {
                     Debug.Assert(SegmentAddressTypes.Contains(value.Type));
-                    value = value.Add(offsets[value.Type]);
-                    FixAddress(location, value, 0, value.Part);
+                    var head = heads[value.Type];
+                    var added = value.Add(head);
+                    FixAddress(location, added, 0, added.Part);
                 }
             }
         }
@@ -273,6 +290,7 @@ namespace Inu.Linker
             var messages = new HashSet<string>();
             foreach (var (key, external) in externals) {
                 if (symbols.TryGetValue(external.Id, out var symbol)) {
+                    var name = identifiers.FromId(external.Id);
                     FixAddress(key, symbol.Address, external.Offset, external.Part);
                 }
                 else {
@@ -288,82 +306,78 @@ namespace Inu.Linker
 
         private void SaveTargetFile(string fileName)
         {
-            string ext = Path.GetExtension(fileName).ToUpper();
+            var ext = Path.GetExtension(fileName).ToUpper();
             SaveTargetFile(fileName, ext);
         }
 
         private static void PrintColumn(StreamWriter writer, string s, int maxLength)
         {
             writer.Write(s);
-            int n = maxLength + 2 - s.Length;
-            for (int i = 0; i < n; ++i) {
+            var n = maxLength + 2 - s.Length;
+            for (var i = 0; i < n; ++i) {
                 writer.Write(' ');
             }
         }
 
-        private static string ToHex(int addressValue)
+        public static string ToHex(int addressValue)
         {
-            return string.Format("{0:X04}", addressValue);
+            return $"{addressValue:X04}";
         }
 
         private const int AddressColumnLength = 5;
 
         private void SaveSymbolFile(string fileName)
         {
-            using (StreamWriter stream = new StreamWriter(fileName, false, Encoding.UTF8)) {
-                int maxNameLength = 0;
-                int maxFileNameLength = 0;
-                SortedDictionary<string, Symbol> nameIndexedSymbols = new SortedDictionary<string, Symbol>();
-                foreach (KeyValuePair<int, Symbol> pair in symbols) {
-                    var name = identifiers.FromId(pair.Key);
-                    Debug.Assert(name != null);
-                    Debug.Assert(pair.Value.Object.Name != null);
-                    string objName = pair.Value.Object.Name;
-                    maxNameLength = Math.Max(name.Length, maxNameLength);
-                    maxFileNameLength = Math.Max(objName.Length, maxFileNameLength);
-                    nameIndexedSymbols[name] = pair.Value;
-                }
-                PrintColumn(stream, "Symbol", maxNameLength);
-                PrintColumn(stream, "Value", AddressColumnLength);
-                PrintColumn(stream, "File", maxNameLength);
-                stream.WriteLine();
-                for (int i = 0; i < (maxNameLength + AddressColumnLength + maxFileNameLength) * 4 / 3; ++i) {
-                    stream.Write('=');
-                }
-                stream.WriteLine();
-                foreach (KeyValuePair<string, Symbol> pair in nameIndexedSymbols) {
-                    string name = pair.Key;
-                    Debug.Assert(pair.Value.Object.Name != null);
-                    string objName = pair.Value.Object.Name;
-                    Address address = pair.Value.Address;
+            using StreamWriter stream = new StreamWriter(fileName, false, Encoding.UTF8);
+            var maxNameLength = 0;
+            var maxFileNameLength = 0;
+            var nameIndexedSymbols = new SortedDictionary<string, Symbol>();
+            foreach (KeyValuePair<int, Symbol> pair in symbols) {
+                var name = identifiers.FromId(pair.Key);
+                Debug.Assert(name != null);
+                Debug.Assert(pair.Value.Object.Name != null);
+                var objName = pair.Value.Object.Name;
+                maxNameLength = Math.Max(name.Length, maxNameLength);
+                maxFileNameLength = Math.Max(objName.Length, maxFileNameLength);
+                nameIndexedSymbols[name] = pair.Value;
+            }
+            PrintColumn(stream, "Symbol", maxNameLength);
+            PrintColumn(stream, "Value", AddressColumnLength);
+            PrintColumn(stream, "File", maxNameLength);
+            stream.WriteLine();
+            for (int i = 0; i < (maxNameLength + AddressColumnLength + maxFileNameLength) * 4 / 3; ++i) {
+                stream.Write('=');
+            }
+            stream.WriteLine();
+            foreach (var pair in nameIndexedSymbols) {
+                var name = pair.Key;
+                Debug.Assert(pair.Value.Object.Name != null);
+                var objName = pair.Value.Object.Name;
+                var address = pair.Value.Address;
 
-                    int addressValue;
-                    if (address.Type == AddressType.Const) {
-                        addressValue = address.Value;
-                    }
-                    else {
-                        Debug.Assert(SegmentAddressTypes.Contains(address.Type));
-                        addressValue = addresses[address.Type] + address.Value;
-                    }
-                    PrintColumn(stream, name, maxNameLength);
-                    PrintColumn(stream, ToHex(addressValue), AddressColumnLength);
-                    PrintColumn(stream, objName, maxFileNameLength);
-                    stream.WriteLine();
-                }
-
+                var addressValue = address.Value;
+                PrintColumn(stream, name, maxNameLength);
+                PrintColumn(stream, ToHex(addressValue), AddressColumnLength);
+                PrintColumn(stream, objName, maxFileNameLength);
                 stream.WriteLine();
-                foreach (var addressType in SegmentAddressTypes) {
-                    if (addresses.ContainsKey(addressType)) {
-                        stream.WriteLine(SegmentNames[addressType] + " " + ToHex(addresses[addressType]) + '-' + ToHex(addresses[addressType] + (segments[addressType].Size - 1)));
-                    }
-                }
+            }
+
+            stream.WriteLine();
+            foreach (var addressType in SegmentAddressTypes) {
+                var segment = segments[addressType];
+                if (segment.Empty) continue;
+                stream.Write(SegmentNames[addressType] + " ");
+                segment.PrintRanges(stream);
+                stream.WriteLine();
             }
         }
 
         protected void SaveTargetFile(string fileName, string ext)
         {
-            TargetFile targetFile = ToTargetFile(fileName, ext);
-            targetFile.Write(addresses[0], segments[0].Bytes.ToArray());
+            var targetFile = ToTargetFile(fileName, ext);
+            var segment = segments[0];
+            segment.Fill();
+            targetFile.Write(segment.MinAddress, segment.Bytes.ToArray());
             targetFile.Dispose();
         }
 
