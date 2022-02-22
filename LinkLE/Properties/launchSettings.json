@@ -2,8 +2,8 @@
   "profiles": {
     "LinkLE": {
       "commandName": "Project",
-      "commandLineArgs": "bootskell.crt 8000 1000 00A3 RomHead.obj Main.obj Status.obj Stage.obj Movable.obj  Man.obj Block.obj Monster.obj Point.obj  Stages.obj Chars.obj  Init.obj ScanKeys.obj Vram.obj VramA.obj Print.obj  SpriteA.obj Sound.obj CopyMemory.obj Math.obj  ZeroPage.obj  ..\\..\\cate\\cate65.lib",
-      "workingDirectory": "D:\\8bit\\c64\\Bootskell64"
+      "commandLineArgs": "trial.bin bff9-bfff,8000 0600 LeftHead.obj Main.obj",
+      "workingDirectory": "D:\\8bit\\atari800\\trial"
     }
   }
 }

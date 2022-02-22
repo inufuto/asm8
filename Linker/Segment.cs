@@ -22,7 +22,7 @@ namespace Inu.Linker
                 tailAddress = minAddress - 1;
             }
 
-            public void PrintRange(StreamWriter stream)
+            public void PrintRange(TextWriter stream)
             {
                 stream.Write(Linker.ToHex(MinAddress) + '-' + Linker.ToHex(tailAddress));
             }
@@ -90,7 +90,7 @@ namespace Inu.Linker
 
             HeadAddress = TailAddress;
             var lastElement = elements[lastIndex];
-            while (lastElement.MaxAddress != null && TailAddress + segment.Size > lastElement.MaxAddress) {
+            while (lastElement.MaxAddress != null && TailAddress + segment.Size > lastElement.MaxAddress + 1) {
                 ++lastIndex;
                 lastElement = elements[lastIndex];
                 HeadAddress = TailAddress = lastElement.MinAddress;
