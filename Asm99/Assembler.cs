@@ -532,6 +532,10 @@ namespace Inu.Assembler.Tms99
             public JumpElement(int trueInstruction, int[] falseInstructions)
                 : this(new[] { trueInstruction }, falseInstructions)
             { }
+
+            public JumpElement(int[] trueInstructions, int falseInstruction)
+                : this(trueInstructions, new[] { falseInstruction })
+            { }
         }
 
         private void ConditionalJump(Address address, bool not)
@@ -544,6 +548,10 @@ namespace Inu.Assembler.Tms99
                 {
                     Keyword.Gt,
                     new JumpElement(0x1500, new[]{ 0x1100, 0x1300 })
+                },
+                {
+                    Keyword.Ngt,
+                    new JumpElement( new[]{ 0x1100, 0x1300 },0x1500)
                 },
                 {
                     Keyword.H,
@@ -564,6 +572,10 @@ namespace Inu.Assembler.Tms99
                 {
                     Keyword.Lt,
                     new JumpElement(0x1100,new []{ 0x1500, 0x1300 })
+                },
+                {
+                    Keyword.NLt,
+                    new JumpElement(new []{ 0x1500, 0x1300 },0x1100)
                 },
                 {
                     Keyword.Nc,
