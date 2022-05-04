@@ -65,3 +65,7 @@ Lib8/Properties/launchSettings.json
 /Asm99/Asm99/obj
 /Asm99/Asm99/Properties/PublishProfiles
 /Asm99/Asm99/Properties
+*.user
+*.user
+*.user
+Asm65.csproj.user
