@@ -71,3 +71,4 @@ Lib8/Properties/launchSettings.json
 /Asm99/bin
 /Asm99/obj
 /Asm99/Properties
+*.user
