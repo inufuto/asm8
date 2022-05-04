@@ -69,3 +69,6 @@ Lib8/Properties/launchSettings.json
 *.user
 *.user
 Asm65.csproj.user
+*.user
+*.user
+*.user
