@@ -72,3 +72,7 @@ Asm65.csproj.user
 *.user
 *.user
 *.user
+/Asm99/bin/Debug/netcoreapp3.1
+/Asm99/obj
+/Asm99/Properties/PublishProfiles/FolderProfile.pubxml
+Properties

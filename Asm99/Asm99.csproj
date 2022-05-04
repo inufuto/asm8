@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <StartupObject>Inu.Assembler.Tms99.Program</StartupObject>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Inu.Assembler.Tms99</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Assembler\Assembler.csproj" />
+    <ProjectReference Include="..\Language\Language.csproj" />
+    <ProjectReference Include="..\Object\Object.csproj" />
+  </ItemGroup>
+
+</Project>
