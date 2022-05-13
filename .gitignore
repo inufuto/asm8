@@ -72,3 +72,8 @@ Lib8/Properties/launchSettings.json
 /Asm99/obj
 /Asm99/Properties
 *.user
+/Asm86/.vs/Asm86
+/Asm86/bin
+/Asm86/obj
+/Asm86/Properties
+/LinkLE/Properties
