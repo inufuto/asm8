@@ -1,9 +1,0 @@
-{
-  "profiles": {
-    "LinkLE": {
-      "commandName": "Project",
-      "commandLineArgs": "trial.bin bff9-bfff,8000 0600 LeftHead.obj Main.obj",
-      "workingDirectory": "D:\\8bit\\atari800\\trial"
-    }
-  }
-}
