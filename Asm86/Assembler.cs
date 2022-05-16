@@ -162,6 +162,7 @@ namespace Inu.Assembler.I8086
             valueToken = null;
             value = null;
             var offsetRequired = false;
+            ParseSegmentOverride();
             if (LastToken.IsReservedWord(Keyword.BX) || LastToken.IsReservedWord(Keyword.BP)) {
                 var pointer1 = LastToken;
                 NextToken();
@@ -217,6 +218,9 @@ namespace Inu.Assembler.I8086
                     if (LastToken.IsReservedWord('+')) {
                         offsetRequired = true;
                         NextToken();
+                    }
+                    else if (LastToken.IsReservedWord('-')) {
+                        offsetRequired = true;
                     }
                 }
                 if (offsetRequired) {
@@ -792,8 +796,7 @@ namespace Inu.Assembler.I8086
                             return true;
                         }
                     }
-                    if (FromRegisterOrMemory(code1 | reverseBit, leftRegister.Value, ByteRegisterCode)) return true;
-                    return false;
+                    return FromRegisterOrMemory(code1 | reverseBit, leftRegister.Value, ByteRegisterCode);
                 }
             }
             {
@@ -829,12 +832,12 @@ namespace Inu.Assembler.I8086
                             return true;
                         }
                     }
-                    if (FromRegisterOrMemory(code1 | reverseBit | 0b1, leftRegister.Value, WordRegisterCode)) return true;
-                    return false;
+                    return FromRegisterOrMemory(code1 | reverseBit | 0b1, leftRegister.Value, WordRegisterCode);
                 }
             }
             ParseSegmentOverride();
-            if (LastToken.IsReservedWord('[')) {
+            if (!LastToken.IsReservedWord('[')) return false;
+            {
                 NextToken();
                 ParseSegmentOverride();
                 ToMemory((Token token, out int? register, out Address? value, out int code, out bool s) =>
@@ -844,11 +847,13 @@ namespace Inu.Assembler.I8086
                     value = null;
                     register = ByteRegisterCode(token);
                     if (register != null) {
+                        NextToken();
                         code = code1;
                         return true;
                     }
                     register = WordRegisterCode(token);
                     if (register != null) {
+                        NextToken();
                         code = code1 | 1;
                         return true;
                     }
@@ -873,8 +878,6 @@ namespace Inu.Assembler.I8086
                 });
                 return true;
             }
-
-            return false;
         }
 
         private bool BinomialInstruction(int code1, int reverseBit, int code2, int code3, bool shortenable)
@@ -937,7 +940,9 @@ namespace Inu.Assembler.I8086
             }
             ParseByteCount();
             ParseSegmentOverride();
+            if (!LastToken.IsReservedWord('[')) return false;
             {
+                NextToken();
                 if (!MemoryOperand(out var rm, out var valueToken, out var value)) return false;
                 WriteByte(ConstOrVariable(code1));
                 if (rm != null) {
