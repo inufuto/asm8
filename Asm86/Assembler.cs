@@ -228,14 +228,13 @@ namespace Inu.Assembler.I8086
                     value = Expression();
                 }
                 AcceptReservedWord(']');
+                return true;
             }
-            else {
-                // direct
-                valueToken = LastToken;
-                value = Expression();
-                if (value == null) return false;
-                AcceptReservedWord(']');
-            }
+            // direct
+            valueToken = LastToken;
+            value = Expression();
+            if (value == null) return false;
+            AcceptReservedWord(']');
             return true;
         }
 
@@ -291,6 +290,7 @@ namespace Inu.Assembler.I8086
             if (ByteCount == null) {
                 ShowUnknownType(LastToken);
             }
+            if (ByteCount == 2) code |= 1;
             return FromMemory(code, leftRegister);
         }
 
@@ -327,7 +327,7 @@ namespace Inu.Assembler.I8086
                 return false;
             }
             if (rm != null) {
-                if (leftValue != null && leftValue.Value != 0) {
+                if ((leftValue != null && leftValue.Value != 0) || rm == 0b110) {
                     if (IsSignedByte(leftValue)) {
                         // mod != 01
                         WriteByte(code);
@@ -346,7 +346,6 @@ namespace Inu.Assembler.I8086
                     writeImmediateValue();
                     return true;
                 }
-
                 // mod == 00
                 WriteByte(code);
                 WriteByte((register << 3) | rm.Value);
