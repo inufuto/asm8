@@ -95,8 +95,7 @@ namespace Inu.Assembler
             return address;
         }
 
-
-        protected void WriteByte(int value)
+        protected virtual void WriteByte(int value)
         {
             CurrentSegment.WriteByte(value);
             Debug.Assert(listFile != null);
@@ -109,7 +108,7 @@ namespace Inu.Assembler
                 if (value.Part == AddressPart.Word) {
                     value = value.Low() ?? value;
                 }
-                @object.AddressUsages[CurrentSegment.Tail] = value;
+                @object.AddressUsages[CurrentAddress] = value;
             }
             else if (!value.IsConst()) {
                 ShowAddressUsageError(token);
@@ -123,17 +122,15 @@ namespace Inu.Assembler
         {
             if (value.IsRelocatable() || value.Type == AddressType.External) {
                 Debug.Assert(value.Part == AddressPart.Word);
-                @object.AddressUsages[CurrentSegment.Tail] = value;
+                @object.AddressUsages[CurrentAddress] = value;
             }
             else if (!value.IsConst()) {
                 ShowAddressUsageError(token);
             }
 
             byte[] bytes = ToBytes(value.Value);
-            foreach (byte b in bytes) {
-                CurrentSegment.WriteByte(b);
-                Debug.Assert(listFile != null);
-                listFile.AddByte(b);
+            foreach (var b in bytes) {
+                WriteByte(b);
             }
         }
 
@@ -147,7 +144,7 @@ namespace Inu.Assembler
 
 
 
-        protected Token SkipEndOfStatement()
+        protected virtual Token SkipEndOfStatement()
         {
             Debug.Assert(listFile != null);
             bool newLine = false;
@@ -164,7 +161,7 @@ namespace Inu.Assembler
                 }
             }
             if (newLine) {
-                listFile.Address = CurrentSegment.Tail;
+                listFile.Address = CurrentAddress;
                 listFile.IndentLevel = blocks.Count;
             }
             return LastToken;
@@ -193,7 +190,7 @@ namespace Inu.Assembler
         }
 
 
-        protected Address CurrentAddress => CurrentSegment.Tail;
+        protected virtual Address CurrentAddress => CurrentSegment.Tail;
 
 
         private Address? CharConstant()
@@ -383,7 +380,7 @@ namespace Inu.Assembler
         {
             CurrentSegment = @object.Segments[(int)type];
             Debug.Assert(listFile != null);
-            listFile.Address = CurrentSegment.Tail;
+            listFile.Address = CurrentAddress;
             NextToken();
         }
         private void PublicDirective()
@@ -533,8 +530,7 @@ namespace Inu.Assembler
 
         protected virtual bool Directive(ReservedWord reservedWord)
         {
-            switch (reservedWord.Id)
-            {
+            switch (reservedWord.Id) {
                 case Keyword.Include:
                     IncludeDirective();
                     return true;
@@ -545,8 +541,7 @@ namespace Inu.Assembler
                     SegmentDirective(AddressType.Data);
                     return true;
                 case Keyword.ZSeg:
-                    if (ZeroPageAvailable)
-                    {
+                    if (ZeroPageAvailable) {
                         SegmentDirective(AddressType.ZeroPage);
                         return true;
                     }
@@ -565,7 +560,16 @@ namespace Inu.Assembler
         }
 
 
-        protected virtual bool IsRelativeOffsetInRange(int offset) { return offset >= -128 && offset <= 128; }
+        protected virtual bool IsRelativeOffsetInRange(int offset)
+        {
+            return IsRelativeOffsetInByte(offset);
+        }
+
+        protected static bool IsRelativeOffsetInByte(int offset)
+        {
+            return offset >= -128 && offset <= 128;
+        }
+
         protected int RelativeOffset(Address address)
         {
             const int instructionLength = 2;
@@ -574,7 +578,7 @@ namespace Inu.Assembler
         protected bool RelativeOffset(out Address address, out int offset)
         {
             offset = 0;
-            Token operand = LastToken;
+            var operand = LastToken;
             var expression = Expression();
             if (expression == null) {
                 ShowSyntaxError();
@@ -582,25 +586,33 @@ namespace Inu.Assembler
                 return false;
             }
             address = expression;
+            return RelativeOffset(operand, address, out offset);
+        }
+
+        protected bool RelativeOffset(Token token, Address address, out int offset)
+        {
+            offset = 0;
             switch (address.Type) {
                 case AddressType.Undefined:
                     return false;
                 case AddressType.Const:
                 case AddressType.External:
-                    ShowAddressUsageError(operand);
+                    ShowAddressUsageError(token);
                     return false;
                 default:
                     if (address.Type == CurrentSegment.Type) {
                         offset = RelativeOffset(address);
                     }
                     else {
-                        ShowAddressUsageError(operand);
+                        ShowAddressUsageError(token);
                         return false;
                     }
+
                     break;
             }
             return IsRelativeOffsetInRange(offset);
         }
+
         protected abstract bool Instruction();
 
 
@@ -685,7 +697,7 @@ namespace Inu.Assembler
                 foreach (Segment segment in @object.Segments) {
                     segment.Clear();
                 }
-                listFile.Address = CurrentSegment.Tail;
+                listFile.Address = CurrentAddress;
                 Assemble();
                 listFile.Close();
             }

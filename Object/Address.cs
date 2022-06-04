@@ -7,7 +7,7 @@ namespace Inu.Assembler
 {
     public enum AddressType
     {
-        Code, Data, ZeroPage, 
+        Code, Data, ZeroPage,
         Undefined = -1, Const = -2, External = -3
     }
 
@@ -18,24 +18,33 @@ namespace Inu.Assembler
 
     public class Address : IComparable<Address>
     {
+        public const int RelativeBit = 0x80;
+
         public readonly AddressType Type;
+        public readonly bool Relative;
         public readonly AddressPart Part;
         public readonly int Value;
         public readonly int? Id;
 
         public bool Parenthesized { get; set; } = false;
         public static Address Default => new Address(AddressType.Const, 0);
+        public Address RelativeValue => new Address(Type, Value, true, Id, Part);
 
-        public Address(AddressType type, int value, int? id = null, AddressPart part = AddressPart.Word)
+        public Address(AddressType type, int value, bool relative, int? id = null, AddressPart part = AddressPart.Word)
         {
             if (IsExternal(type)) {
                 Debug.Assert(id != null);
             }
             Type = type;
+            Part = part;
+            Relative = relative;
             Value = value;
             Id = id;
-            Part = part;
         }
+
+        public Address(AddressType type, int value, int? id = null, AddressPart part = AddressPart.Word)
+            : this(type, value, false, id, part)
+        { }
 
         private static bool IsExternal(AddressType type)
         {
@@ -46,7 +55,12 @@ namespace Inu.Assembler
 
         public Address(Stream stream)
         {
-            Type = (AddressType)(sbyte)stream.ReadByte();
+            var b = stream.ReadByte();
+            if (b == RelativeBit) {
+                Relative = true;
+                b = stream.ReadByte();
+            }
+            Type = (AddressType)(sbyte)b;
             Value = stream.ReadWord();
             if (Type == AddressType.External) {
                 Id = stream.ReadWord();
@@ -75,6 +89,9 @@ namespace Inu.Assembler
 
         public void Write(Stream stream)
         {
+            if (Relative) {
+                stream.WriteByte(RelativeBit);
+            }
             stream.WriteByte((int)Type);
             stream.WriteWord(Value);
             if (Type == AddressType.External) {
