@@ -5,7 +5,7 @@ namespace Inu.Assembler.Mc6800
 {
     class Keyword : Inu.Assembler.Keyword
     {
-        public new const int MinId = NextId;
+        public new const int MinId = Inu.Assembler.Keyword.NextId;
 
         public const int Cc = MinId + 0;
         public const int Cs = MinId + 1;
@@ -129,6 +129,9 @@ namespace Inu.Assembler.Mc6800
         public const int Txs = MinId + 119;
         public const int Wai = MinId + 120;
         public const int X = MinId + 121;
+
+        protected new const int NextId = MinId + 122;
+
 
         public new static readonly Dictionary<int, string> Words = new Dictionary<int, string>()
         {
