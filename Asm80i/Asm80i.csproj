@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <StartupObject>Inu.Assembler.I8080.Program</StartupObject>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Inu.Assembler.I8080</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Assembler\Assembler.csproj" />
+    <ProjectReference Include="..\Language\Language.csproj" />
+  </ItemGroup>
+
+</Project>
