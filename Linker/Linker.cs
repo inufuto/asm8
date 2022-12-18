@@ -200,7 +200,7 @@ namespace Inu.Linker
             }
         }
 
-        private void FixAddress(Address location, Address value, int offset, AddressPart part)
+        private void FixAddress(Address location, Address value, int offset, AddressPart part, bool relative)
         {
             Debug.Assert(SegmentAddressTypes.Contains(location.Type));
             Debug.Assert(SegmentAddressTypes.Contains(value.Type));
@@ -212,12 +212,21 @@ namespace Inu.Linker
             var addedValue = address + offset;
             switch (part) {
                 case AddressPart.Word:
+                    if (relative) {
+                        addedValue -= location.Value + 2;
+                    }
                     segments[location.Type].WriteWord(location.Value, ToBytes(addedValue));
                     break;
                 case AddressPart.LowByte:
+                    if (relative) {
+                        addedValue -= location.Value + 1;
+                    }
                     segments[location.Type].WriteByte(location.Value, (byte)(addedValue & 0xff));
                     break;
                 case AddressPart.HighByte:
+                    if (relative) {
+                        addedValue -= location.Value + 1;
+                    }
                     segments[location.Type].WriteByte(location.Value, (byte)((addedValue >> 8) & 0xff));
                     break;
                 default:
@@ -274,13 +283,13 @@ namespace Inu.Linker
                     Debug.Assert(value.Id != null);
                     var name = obj.NameFromId(value.Id.Value);
                     var id = this.identifiers.Add(name);
-                    externals[location] = new External(id, obj, value.Value, value.Part);
+                    externals[location] = new External(id, obj, value.Value, value.Part, value.Relative);
                 }
                 else {
                     Debug.Assert(SegmentAddressTypes.Contains(value.Type));
                     var head = heads[value.Type];
                     var added = value.Add(head);
-                    FixAddress(location, added, 0, added.Part);
+                    FixAddress(location, added, 0, added.Part, false);
                 }
             }
         }
@@ -291,7 +300,7 @@ namespace Inu.Linker
             foreach (var (key, external) in externals) {
                 if (symbols.TryGetValue(external.Id, out var symbol)) {
                     var name = identifiers.FromId(external.Id);
-                    FixAddress(key, symbol.Address, external.Offset, external.Part);
+                    FixAddress(key, symbol.Address, external.Offset, external.Part, external.Relative);
                 }
                 else {
                     var name = identifiers.FromId(external.Id);
