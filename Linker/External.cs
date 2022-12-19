@@ -12,13 +12,15 @@ namespace Inu.Linker
         public readonly Assembler.Object Object;
         public readonly int Offset;
         public readonly AddressPart Part;
+        public readonly bool Relative;
 
-        public External(int id, Object obj, int offset, AddressPart part)
+        public External(int id, Object obj, int offset, AddressPart part, bool relative)
         {
             Id = id;
             Object = obj;
             Offset = offset;
             Part = part;
+            Relative = relative;
         }
     }
 }

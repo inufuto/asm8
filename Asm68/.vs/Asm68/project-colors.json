@@ -1,0 +1,21 @@
+{
+  "Version": 1,
+  "ProjectMap": {
+    "6e36741d-a39b-4f38-b203-9c83e6667b39": {
+      "ProjectGuid": "6e36741d-a39b-4f38-b203-9c83e6667b39",
+      "DisplayName": "Asm68",
+      "ColorIndex": 0
+    },
+    "3716b3fb-a6ce-469c-a558-4b8941ff55a8": {
+      "ProjectGuid": "3716b3fb-a6ce-469c-a558-4b8941ff55a8",
+      "DisplayName": "Assembler",
+      "ColorIndex": 1
+    },
+    "074a09e3-e6c7-4024-95d9-d304396df53c": {
+      "ProjectGuid": "074a09e3-e6c7-4024-95d9-d304396df53c",
+      "DisplayName": "Language",
+      "ColorIndex": 2
+    }
+  },
+  "NextColorIndex": 3
+}

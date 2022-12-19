@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "Lib8": {
+      "commandName": "Project",
+      "commandLineArgs": "cate87.lib WorkingReg.obj  ShiftLeftA.obj ShiftRightA.obj ShiftRightSignedA.obj  ShiftLeftHl.obj ShiftRightHl.obj ShiftRightSignedHl.obj  LessThanByte.obj GreaterThanByte.obj  LessThanSignedWord.obj LessThanWord.obj  GreaterThanSignedWord.obj GreaterThanWord.obj  LessEqualSignedWord.obj LessEqualWord.obj  ShiftLeftDe1.obj",
+      "workingDirectory": "D:\\8bit\\cate\\MuCom87"
+    }
+  }
+}

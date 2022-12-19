@@ -33,22 +33,9 @@ namespace Inu.Assembler
         {
             var n = stream.ReadWord();
             if (n <= 0) return;
-            byte[] bytes = new byte[n];
+            var bytes = new byte[n];
             stream.Read(bytes, 0, n);
             Bytes.AddRange(bytes);
-        }
-
-        public void Append(Segment segment)
-        {
-            Bytes.AddRange(segment.Bytes);
-        }
-
-        public void WriteAddress(int location, byte[] bytes)
-        {
-            Debug.Assert(location >= 0 && location <= Size - 2);
-            Debug.Assert(bytes.Length == 2);
-            Bytes[location] = bytes[0];
-            Bytes[location + 1] = bytes[1];
         }
     }
 }

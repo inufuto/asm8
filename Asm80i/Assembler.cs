@@ -179,6 +179,142 @@ namespace Inu.Assembler.I8080
         }
 
 
+        private static readonly int[] ConditionCodes = { Keyword.NZ, Keyword.Z, Keyword.NC, Keyword.C, Keyword.PO, Keyword.PE, Keyword.P, Keyword.M };
+        private static int? ConditionCode(Token token)
+        {
+            if (!(token is ReservedWord reservedWord))
+                return null;
+            var code = 0;
+            foreach (var r in ConditionCodes) {
+                if (r == reservedWord.Id) {
+                    return code;
+                }
+                ++code;
+            }
+            return null;
+        }
+
+        private void ConditionalJump(Address address)
+        {
+            var condition = LastToken;
+            var conditionCode = ConditionCode(condition);
+            if (conditionCode == null)
+                return;
+            NextToken();
+            // J cc,else
+            WriteByte(0b11000010 | (conditionCode.Value << 3));
+            WriteWord(LastToken, address);
+        }
+
+        private void NegatedConditionalJump(Address address)
+        {
+            var condition = LastToken;
+            var conditionCode = ConditionCode(condition);
+            if (conditionCode == null)
+                return;
+            NextToken();
+            conditionCode ^= 1; // negate condition
+            // J !cc,else
+            WriteByte(0b11000010 | (conditionCode.Value << 3));
+            WriteWord(LastToken, address);
+        }
+
+        private void UnconditionalJump(Address address)
+        {
+            WriteByte(0b11000011);
+            WriteWord(LastToken, address);
+        }
+
+        private void StartIf(IfBlock block)
+        {
+            var address = SymbolAddress(block.ElseId);
+            NegatedConditionalJump(address);
+        }
+
+        private void IfStatement()
+        {
+            var block = NewIfBlock();
+            StartIf(block);
+        }
+        private void ElseStatement()
+        {
+            if (LastBlock() is IfBlock block) {
+                if (block.ElseId <= 0) {
+                    ShowError(LastToken.Position, "Multiple ELSE statement.");
+                }
+
+                var address = SymbolAddress(block.EndId);
+                UnconditionalJump(address);
+                DefineSymbol(block.ConsumeElse(), CurrentAddress);
+            }
+            else {
+                ShowNoStatementError(LastToken, "IF");
+            }
+        }
+
+        private void ElseIfStatement()
+        {
+            ElseStatement();
+            if (!(LastBlock() is IfBlock block)) { return; }
+            Debug.Assert(block.ElseId == Block.InvalidId);
+            block.ElseId = AutoLabel();
+            StartIf(block);
+        }
+        private void EndIfStatement()
+        {
+            if (LastBlock() is IfBlock block)
+            {
+                DefineSymbol(block.ElseId <= 0 ? block.EndId : block.ConsumeElse(), CurrentAddress);
+                EndBlock();
+            }
+            else {
+                ShowNoStatementError(LastToken, "IF");
+            }
+        }
+
+        private void DoStatement()
+        {
+            var block = NewWhileBlock();
+            DefineSymbol(block.BeginId, CurrentAddress);
+            NextToken();
+        }
+        private void WhileStatement()
+        {
+            if (!(LastBlock() is WhileBlock block)) {
+                ShowNoStatementError(LastToken, "WHILE");
+                NextToken();
+                return;
+            }
+
+            var repeatAddress = SymbolAddress(block.RepeatId);
+            if (repeatAddress.Type == CurrentSegment.Type && (RelativeOffset(repeatAddress)) <= 1) {
+                var address = SymbolAddress(block.BeginId);
+                ConditionalJump(address);
+                block.EraseEndId();
+            }
+            else {
+                var address = SymbolAddress(block.EndId);
+                NegatedConditionalJump(address);
+            }
+        }
+
+        private void WEndStatement()
+        {
+            if (!(LastBlock() is WhileBlock block)) {
+                ShowNoStatementError(LastToken, "WHILE");
+            }
+            else {
+                if (block.EndId > 0) {
+                    DefineSymbol(block.RepeatId, CurrentAddress);
+                    Address address = SymbolAddress(block.BeginId);
+                    UnconditionalJump(address);
+                    DefineSymbol(block.EndId, CurrentAddress);
+                }
+                EndBlock();
+            }
+            NextToken();
+        }
+
         private static readonly Dictionary<int, int> SingleByteInstructions = new Dictionary<int, int>
         {
             { Keyword.HLT, 0b01110110 },
@@ -263,6 +399,14 @@ namespace Inu.Assembler.I8080
             { Keyword.DCX, a=>a.OperateRegisterPair(0b00001011, t => !t.IsReservedWord(Keyword.PSW))},
             { Keyword.SHLD, a=>a.OperateWord(0b00100010) },
             { Keyword.LHLD, a=>a.OperateWord(0b00101010 ) },
+            //
+            {Keyword.If, (Assembler a)=>{a.IfStatement(); }},
+            {Keyword.Else, (Assembler a)=>{a.ElseStatement(); }},
+            {Keyword.EndIf,(Assembler a)=>{a.EndIfStatement(); }},
+            {Keyword.ElseIf, (Assembler a)=>{a.ElseIfStatement(); }},
+            {Keyword.Do, (Assembler a)=>{a.DoStatement(); }},
+            {Keyword.While, (Assembler a)=>{a.WhileStatement(); }},
+            {Keyword.WEnd, (Assembler a)=>{a.WEndStatement(); }},
         };
 
         protected override bool Instruction()
