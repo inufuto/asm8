@@ -1,8 +1,8 @@
 ﻿using Inu.Language;
 
-namespace Inu.Assembler.MuCom87
+namespace Inu.Assembler.MuCom87.MuPD7800
 {
-    public class Tokenizer : Inu.Assembler.Tokenizer
+    internal class Tokenizer : MuCom87.Tokenizer
     {
         public Tokenizer()
         {

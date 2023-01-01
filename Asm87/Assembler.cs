@@ -4,11 +4,13 @@ using Inu.Language;
 
 namespace Inu.Assembler.MuCom87
 {
-    public class Assembler : LittleEndianAssembler
+    public abstract class Assembler : LittleEndianAssembler
     {
-        public Assembler() : base(new Tokenizer()) { }
+        protected Assembler() : base(new Tokenizer()) { }
 
-        private void WriteByteExpression()
+        protected Assembler(Tokenizer tokenizer) : base(tokenizer) { }
+
+        protected void WriteByteExpression()
         {
             var token = LastToken;
             var value = Expression();
@@ -47,13 +49,13 @@ namespace Inu.Assembler.MuCom87
             }
         }
 
-        private void InstructionWithoutOperand(int code)
+        protected void InstructionWithoutOperand(int code)
         {
             NextToken();
             WriteByte(code);
         }
 
-        private void InstructionWithoutOperand(int code1, int code2)
+        protected void InstructionWithoutOperand(int code1, int code2)
         {
             NextToken();
             WriteByte(code1);
@@ -66,7 +68,7 @@ namespace Inu.Assembler.MuCom87
             WriteByteExpression();
         }
 
-        private void InstructionWithByte(int code1, int code2)
+        protected void InstructionWithByte(int code1, int code2)
         {
             WriteByte(code1);
             InstructionWithByte(code2);
@@ -105,7 +107,7 @@ namespace Inu.Assembler.MuCom87
             return null;
         }
 
-        private int? Register()
+        protected int? Register()
         {
             var register = Register(LastToken);
             if (register == null) return null;
@@ -138,7 +140,7 @@ namespace Inu.Assembler.MuCom87
             return null;
         }
 
-        private int? RegisterPair()
+        protected int? RegisterPair()
         {
             var register = RegisterPair(LastToken);
             if (register != null) {
@@ -189,7 +191,7 @@ namespace Inu.Assembler.MuCom87
                 register = 0;
             }
             WriteByte(code1);
-            WriteByte(code2 | (register.Value << 4));
+            WriteByte(code2 | register.Value << 4);
         }
 
         private static int? RegisterPairSp(Token token)
@@ -220,7 +222,7 @@ namespace Inu.Assembler.MuCom87
                 ShowSyntaxError(LastToken);
                 register = 0;
             }
-            WriteByte(code | (register.Value << 4));
+            WriteByte(code | register.Value << 4);
         }
 
         private void InstructionWithRegisterPairSpWord(int code)
@@ -256,7 +258,7 @@ namespace Inu.Assembler.MuCom87
             return null;
         }
 
-        private void InstructionWithInterrupt(int code1, int code2)
+        protected void InstructionWithInterrupt(int code1, int code2)
         {
             NextToken();
             var interrupt = Interrupt();
@@ -354,35 +356,7 @@ namespace Inu.Assembler.MuCom87
         }
 
 
-        private void MoveImmediateWorking()
-        {
-            NextToken();
-            WriteByte(0b01110001);
-            WriteByteExpression();
-            AcceptReservedWord(',');
-            WriteByteExpression();
-        }
 
-        private void MoveImmediateIndex()
-        {
-
-
-            Dictionary<int, int> codes = new Dictionary<int, int>()
-            {
-                {Keyword.B,0x49},
-                {Keyword.D,0x4a},
-                {Keyword.H,0x4b},
-            };
-            var leftToken = NextToken();
-            var register = RegisterPair();
-            if (register == null) {
-                ShowSyntaxError(LastToken);
-                register = 0;
-            }
-            AcceptReservedWord(',');
-            WriteByte(0x48 | register.Value);
-            WriteByteExpression();
-        }
 
         private void PairRegisterIncrementDecrement(int code)
         {
@@ -444,30 +418,6 @@ namespace Inu.Assembler.MuCom87
                 ShowSyntaxError(LastToken);
             }
         }
-        private void ByteOperationA(int code1, int code2)
-        {
-            var leftToken = NextToken();
-            if (LastToken.IsReservedWord(Keyword.A)) {
-                NextToken();
-                AcceptReservedWord(',');
-                var rightRegister = Register();
-                if (rightRegister != null) {
-                    if (LastToken.IsReservedWord(Keyword.V) || LastToken.IsReservedWord(Keyword.A)) {
-                        ShowInvalidRegister(leftToken);
-                    }
-                    WriteByte(code1);
-                    WriteByte(code2 | rightRegister.Value);
-                    return;
-                }
-            }
-            if (Register() != null) {
-                AcceptReservedWord(',');
-                Register();
-                ShowInvalidRegister(leftToken);
-                return;
-            }
-            ShowSyntaxError(LastToken);
-        }
 
         private void ByteOperationX(int code1, int code2)
         {
@@ -475,7 +425,7 @@ namespace Inu.Assembler.MuCom87
             PairRegisterIncrementDecrement(code2);
         }
 
-        private void ByteOperationImmediate(int codeA, int code1, int code2)
+        protected void ByteOperationImmediate(int codeA, int code1, int code2)
         {
             var leftToken = NextToken();
             if (LastToken.IsReservedWord(Keyword.A)) {
@@ -629,10 +579,10 @@ namespace Inu.Assembler.MuCom87
         {
             var operand = NextToken();
             var addressValue = ConstantAddress();
-            if (((addressValue & 0x7ff) | 0x800) != addressValue) {
+            if ((addressValue & 0x7ff | 0x800) != addressValue) {
                 ShowOutOfRange(operand, addressValue);
             }
-            WriteByte(0x78 | ((addressValue >> 8) & 0x07));
+            WriteByte(0x78 | addressValue >> 8 & 0x07);
             WriteByte(addressValue & 0xff);
         }
 
@@ -643,22 +593,7 @@ namespace Inu.Assembler.MuCom87
             if (addressValue < 0x80 || addressValue > 0xff || (addressValue & 1) != 0) {
                 ShowOutOfRange(operand, addressValue);
             }
-            WriteByte(0x80 | ((addressValue >> 1) & 0x3f));
-        }
-
-        private void BitTest()
-        {
-            var leftToken = NextToken();
-            var bit = Expression();
-            if (bit == null || bit.Type != AddressType.Const) {
-                bit = Address.Default;
-            }
-            if (bit.Value < 0 || bit.Value > 7) {
-                ShowOutOfRange(leftToken, bit.Value);
-            }
-            WriteByte(0x58 | (bit.Value & 7));
-            AcceptReservedWord(',');
-            WriteByteExpression();
+            WriteByte(0x80 | addressValue >> 1 & 0x3f);
         }
 
         private void InOut(int code)
@@ -706,22 +641,22 @@ namespace Inu.Assembler.MuCom87
 
         private void StartIf(IfBlock block)
         {
-            Address address = SymbolAddress(block.ElseId);
+            var address = SymbolAddress(block.ElseId);
             ConditionalJump(address);
         }
 
         private void IfStatement()
         {
             NextToken();
-            IfBlock block = NewIfBlock();
+            var block = NewIfBlock();
             StartIf(block);
         }
 
         private void IfStatement(int code1, int code2)
         {
             NextToken();
-            IfBlock block = NewIfBlock();
-            Address address = SymbolAddress(block.ElseId);
+            var block = NewIfBlock();
+            var address = SymbolAddress(block.ElseId);
             ConditionalJump(code1, code2, address);
         }
 
@@ -731,7 +666,7 @@ namespace Inu.Assembler.MuCom87
                 if (block.ElseId <= 0) {
                     ShowError(LastToken.Position, "Multiple ELSE statement.");
                 }
-                Address address = SymbolAddress(block.EndId);
+                var address = SymbolAddress(block.EndId);
                 RelativeJumpShort(LastToken, address);
                 DefineSymbol(block.ConsumeElse(), CurrentAddress);
             }
@@ -764,7 +699,7 @@ namespace Inu.Assembler.MuCom87
 
         private void DoStatement()
         {
-            WhileBlock block = NewWhileBlock();
+            var block = NewWhileBlock();
             DefineSymbol(block.BeginId, CurrentAddress);
             NextToken();
         }
@@ -784,7 +719,7 @@ namespace Inu.Assembler.MuCom87
             if (LastBlock() is WhileBlock block) {
                 if (block.EndId > 0) {
                     DefineSymbol(block.RepeatId, CurrentAddress);
-                    Address address = SymbolAddress(block.BeginId);
+                    var address = SymbolAddress(block.BeginId);
                     RelativeJumpShort(LastToken, address);
                     DefineSymbol(block.EndId, CurrentAddress);
                 }
@@ -801,7 +736,7 @@ namespace Inu.Assembler.MuCom87
             if (LastBlock() is WhileBlock block) {
                 if (block.EndId > 0) {
                     DefineSymbol(block.RepeatId, CurrentAddress);
-                    Address address = SymbolAddress(block.BeginId);
+                    var address = SymbolAddress(block.BeginId);
                     RelativeJumpShort(LastToken, address);
                     DefineSymbol(block.EndId, CurrentAddress);
                 }
@@ -813,7 +748,7 @@ namespace Inu.Assembler.MuCom87
             NextToken();
         }
 
-        private bool SkipInstruction(int id)
+        protected virtual bool SkipInstruction(int id)
         {
             switch (id) {
                 case Keyword.ADDNC:
@@ -840,14 +775,8 @@ namespace Inu.Assembler.MuCom87
                 case Keyword.LTAX:
                     ByteOperationX(0x70, 0xb8);
                     return true;
-                case Keyword.ONA:
-                    ByteOperationA(0x60, 0xC8);
-                    return true;
                 case Keyword.ONAX:
                     ByteOperationX(0x70, 0xc8);
-                    return true;
-                case Keyword.OFFA:
-                    ByteOperationA(0x60, 0xd8);
                     return true;
                 case Keyword.OFFAX:
                     ByteOperationX(0x70, 0xd8);
@@ -864,53 +793,11 @@ namespace Inu.Assembler.MuCom87
                 case Keyword.EQAX:
                     ByteOperationX(0x70, 0xf8);
                     return true;
-                case Keyword.ADINC:
-                    ByteOperationImmediate(0x26, 0x64, 0x20);
-                    return true;
-                case Keyword.SUINB:
-                    ByteOperationImmediate(0x36, 0x64, 0x30);
-                    return true;
-                case Keyword.GTI:
-                    ByteOperationImmediate(0x27, 0x64, 0x28);
-                    return true;
-                case Keyword.LTI:
-                    ByteOperationImmediate(0x37, 0x64, 0x38);
-                    return true;
                 case Keyword.ONI:
                     ByteOperationImmediate(0x47, 0x64, 0x48);
                     return true;
                 case Keyword.OFFI:
                     ByteOperationImmediate(0x57, 0x64, 0x58);
-                    return true;
-                case Keyword.NEI:
-                    ByteOperationImmediate(0x67, 0x64, 0x68);
-                    return true;
-                case Keyword.EQI:
-                    ByteOperationImmediate(0x77, 0x64, 0x78);
-                    return true;
-                case Keyword.ADDNCW:
-                    InstructionWithByte(0x74, 0xa0);
-                    return true;
-                case Keyword.SUBNBW:
-                    InstructionWithByte(0x74, 0xb0);
-                    return true;
-                case Keyword.GTAW:
-                    InstructionWithByte(0x74, 0xa8);
-                    return true;
-                case Keyword.LTAW:
-                    InstructionWithByte(0x74, 0xb8);
-                    return true;
-                case Keyword.ONAW:
-                    InstructionWithByte(0x74, 0xc8);
-                    return true;
-                case Keyword.OFFAW:
-                    InstructionWithByte(0x74, 0xd8);
-                    return true;
-                case Keyword.NEAW:
-                    InstructionWithByte(0x74, 0xe8);
-                    return true;
-                case Keyword.EQAW:
-                    InstructionWithByte(0x74, 0xf8);
                     return true;
                 case Keyword.GTIW:
                     InstructionWith2Bytes(0x25);
@@ -942,23 +829,11 @@ namespace Inu.Assembler.MuCom87
                 case Keyword.DCRW:
                     InstructionWithByte(0x30);
                     return true;
-                case Keyword.BIT:
-                    BitTest();
-                    return true;
-                case Keyword.SKC:
-                    InstructionWithoutOperand(0x48, 0x0a);
-                    return true;
                 case Keyword.SKNC:
                     InstructionWithoutOperand(0x48, 0x1a);
                     return true;
-                case Keyword.SKZ:
-                    InstructionWithoutOperand(0x48, 0x0c);
-                    return true;
                 case Keyword.SKNZ:
                     InstructionWithoutOperand(0x48, 0x1c);
-                    return true;
-                case Keyword.SKIT:
-                    InstructionWithInterrupt(0x48, 0x00);
                     return true;
                 case Keyword.SKNIT:
                     InstructionWithInterrupt(0x48, 0x10);
@@ -975,18 +850,17 @@ namespace Inu.Assembler.MuCom87
             var reservedWord = LastToken as ReservedWord;
             Debug.Assert(reservedWord != null);
 
+            return Instruction(reservedWord);
+        }
+
+        protected virtual bool Instruction(ReservedWord reservedWord)
+        {
             switch (reservedWord.Id) {
                 case Keyword.MOV:
                     Move();
                     return true;
                 case Keyword.MVI:
                     InstructionWithRegisterByte(0b01101000);
-                    return true;
-                case Keyword.MVIW:
-                    MoveImmediateWorking();
-                    return true;
-                case Keyword.MVIX:
-                    MoveImmediateIndex();
                     return true;
                 case Keyword.STAW:
                     InstructionWithByte(0b00111000);
@@ -999,15 +873,6 @@ namespace Inu.Assembler.MuCom87
                     return true;
                 case Keyword.LDAX:
                     PairRegisterIncrementDecrement(0b00101000);
-                    return true;
-                case Keyword.EXX:
-                    InstructionWithoutOperand(0b00010001);
-                    return true;
-                case Keyword.EX:
-                    InstructionWithoutOperand(0b00010000);
-                    return true;
-                case Keyword.BLOCK:
-                    InstructionWithoutOperand(0b00110001);
                     return true;
                 case Keyword.SBCD:
                     InstructionWithWord(0x70, 0x1e);
@@ -1041,9 +906,6 @@ namespace Inu.Assembler.MuCom87
                     return true;
                 case Keyword.LXI:
                     InstructionWithRegisterPairSpWord(0x04);
-                    return true;
-                case Keyword.TABLE:
-                    InstructionWithoutOperand(0x21);
                     return true;
                 case Keyword.ADD:
                     ByteOperation(0x60, 0x40);
@@ -1087,47 +949,17 @@ namespace Inu.Assembler.MuCom87
                 case Keyword.XRAX:
                     ByteOperationX(0x70, 0x90);
                     return true;
-                case Keyword.XRI:
-                    ByteOperationImmediate(0x16, 0x64, 0x10);
-                    return true;
-                case Keyword.ADI:
-                    ByteOperationImmediate(0x46, 0x64, 0x40);
-                    return true;
-                case Keyword.ACI:
-                    ByteOperationImmediate(0x56, 0x64, 0x50);
-                    return true;
-                case Keyword.SUI:
-                    ByteOperationImmediate(0x66, 0x64, 0x60);
-                    return true;
-                case Keyword.SBI:
-                    ByteOperationImmediate(0x76, 0x64, 0x70);
-                    return true;
                 case Keyword.ANI:
                     ByteOperationImmediate(0x07, 0x64, 0x08);
                     return true;
                 case Keyword.ORI:
                     ByteOperationImmediate(0x17, 0x64, 0x18);
                     return true;
-                case Keyword.XRAW:
-                    InstructionWithByte(0x74, 0x90);
+                case Keyword.ONI:
+                    ByteOperationImmediate(0x47, 0x64, 0x48);
                     return true;
-                case Keyword.ADDW:
-                    InstructionWithByte(0x74, 0xc0);
-                    return true;
-                case Keyword.ADCW:
-                    InstructionWithByte(0x74, 0xd0);
-                    return true;
-                case Keyword.SUBW:
-                    InstructionWithByte(0x74, 0xe0);
-                    return true;
-                case Keyword.SBBW:
-                    InstructionWithByte(0x74, 0xf0);
-                    return true;
-                case Keyword.ANAW:
-                    InstructionWithByte(0x74, 0x88);
-                    return true;
-                case Keyword.ORAW:
-                    InstructionWithByte(0x74, 0x98);
+                case Keyword.OFFI:
+                    ByteOperationImmediate(0x57, 0x64, 0x58);
                     return true;
                 case Keyword.ANIW:
                     InstructionWith2Bytes(0x05);
@@ -1159,26 +991,8 @@ namespace Inu.Assembler.MuCom87
                 case Keyword.RAL:
                     InstructionWithoutOperand(0x48, 0x30);
                     return true;
-                case Keyword.RCL:
-                    InstructionWithoutOperand(0x48, 0x32);
-                    return true;
                 case Keyword.RAR:
                     InstructionWithoutOperand(0x48, 0x31);
-                    return true;
-                case Keyword.RCR:
-                    InstructionWithoutOperand(0x48, 0x33);
-                    return true;
-                case Keyword.SHAL:
-                    InstructionWithoutOperand(0x48, 0x34);
-                    return true;
-                case Keyword.SHCL:
-                    InstructionWithoutOperand(0x48, 0x36);
-                    return true;
-                case Keyword.SHAR:
-                    InstructionWithoutOperand(0x48, 0x35);
-                    return true;
-                case Keyword.SHCR:
-                    InstructionWithoutOperand(0x48, 0x37);
                     return true;
                 case Keyword.JMP:
                     InstructionWithWord(0x54);
@@ -1194,9 +1008,6 @@ namespace Inu.Assembler.MuCom87
                     return true;
                 case Keyword.CALL:
                     InstructionWithWord(0x44);
-                    return true;
-                case Keyword.CALB:
-                    InstructionWithoutOperand(0x63);
                     return true;
                 case Keyword.CALF:
                     CallConstant();
@@ -1222,9 +1033,6 @@ namespace Inu.Assembler.MuCom87
                 case Keyword.DI:
                     InstructionWithoutOperand(0x48, 0x24);
                     return true;
-                case Keyword.HLT:
-                    InstructionWithoutOperand(0x01);
-                    return true;
                 case Keyword.SIO:
                     InstructionWithoutOperand(0x09);
                     return true;
@@ -1240,14 +1048,11 @@ namespace Inu.Assembler.MuCom87
                 case Keyword.PEX:
                     InstructionWithoutOperand(0x48, 0x2d);
                     return true;
-                case Keyword.PEN:
-                    InstructionWithoutOperand(0x48, 0x2c);
-                    return true;
                 case Keyword.PER:
                     InstructionWithoutOperand(0x48, 0x3c);
                     return true;
                 //
-                case Inu.Assembler.Keyword.If:
+                case Keyword.If:
                     IfStatement();
                     return true;
                 case Keyword.IFC:
@@ -1262,22 +1067,22 @@ namespace Inu.Assembler.MuCom87
                 case Keyword.IFNZ:
                     IfStatement(0x48, 0x1c);
                     return true;
-                case Inu.Assembler.Keyword.Else:
+                case Keyword.Else:
                     ElseStatement();
                     return true;
-                case Inu.Assembler.Keyword.ElseIf:
+                case Keyword.ElseIf:
                     ElseIfStatement();
                     return true;
-                case Inu.Assembler.Keyword.EndIf:
+                case Keyword.EndIf:
                     EndIfStatement();
                     return true;
-                case Inu.Assembler.Keyword.Do:
+                case Keyword.Do:
                     DoStatement();
                     return true;
-                case Inu.Assembler.Keyword.While:
+                case Keyword.While:
                     WhileStatement();
                     return true;
-                case Inu.Assembler.Keyword.WEnd:
+                case Keyword.WEnd:
                     WEndStatement();
                     return true;
                 case Keyword.REPEAT:
