@@ -93,20 +93,32 @@ namespace Inu.Linker
                     }
                 }
 
-                foreach (var library in libraries) {
-                    var objects = new HashSet<Assembler.Object>();
-                    foreach (var external in externals.Select(pair => pair.Value)) {
-                        if (symbols.TryGetValue(external.Id, out _))
-                            continue;
-                        var name = identifiers.FromId(external.Id);
-                        Debug.Assert(name != null);
-                        var obj = library.NameToObject(name);
-                        if (obj == null)
-                            continue;
-                        objects.Add(obj);
-                    }
-                    foreach (var @object in objects) {
-                        ReadObject(@object);
+                {
+                    var changed=true;
+                    while (changed)
+                    {
+                        changed = false;
+                        foreach (var library in libraries)
+                        {
+                            var objects = new HashSet<Assembler.Object>();
+                            foreach (var external in externals.Select(pair => pair.Value))
+                            {
+                                if (symbols.TryGetValue(external.Id, out _))
+                                    continue;
+                                var name = identifiers.FromId(external.Id);
+                                Debug.Assert(name != null);
+                                var obj = library.NameToObject(name);
+                                if (obj == null)
+                                    continue;
+                                objects.Add(obj);
+                                changed = true;
+                            }
+
+                            foreach (var @object in objects)
+                            {
+                                ReadObject(@object);
+                            }
+                        }
                     }
                 }
 

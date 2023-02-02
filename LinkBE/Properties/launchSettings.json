@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "LinkBE": {
+      "commandName": "Project",
+      "commandLineArgs": "cavit.bin 8000 f000 startup.obj  Main.obj Status.obj Stages.obj Stage.obj Fixed.obj Box.obj Rock.obj  Direction.obj Movable.obj Man.obj Monster.obj Chaser.obj Ghost.obj Point.obj  Chars.obj Print.obj  Init.obj ScanKeys.obj ",
+      "workingDirectory": "D:\\8bit\\pyuta\\CavitP"
+    }
+  }
+}

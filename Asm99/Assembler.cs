@@ -325,12 +325,18 @@ namespace Inu.Assembler.Tms99
             var registerCode = AcceptRegister();
             AcceptReservedWord(',');
 
+            int value;
             var token = LastToken;
-            var value = AcceptConstant();
-            if (value <= 0x00 || value > 0x0f) {
-                ShowOutOfRange(token, value);
+            if (token.IsReservedWord(Keyword.R0)) {
+                NextToken();
+                value = 0;
             }
-
+            else {
+                value = AcceptConstant();
+                if (value <= 0x00 || value > 0x0f) {
+                    ShowOutOfRange(token, value);
+                }
+            }
             WriteWord(
                 (instruction |
                  (value << 4) |
