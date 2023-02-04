@@ -57,6 +57,7 @@ namespace Inu.Assembler.Mb8861
             if (!(LastToken is ReservedWord reservedWord) ||
                 !OperationCodes.TryGetValue(reservedWord.Id, out var instruction)) return false;
             NextToken();
+            AcceptReservedWord('#');
             var valueToken = LastToken;
             var value = Expression();
             if (value == null) {
@@ -65,6 +66,10 @@ namespace Inu.Assembler.Mb8861
             }
             AcceptReservedWord(',');
             var offsetToken = LastToken;
+            if (offsetToken.IsReservedWord('<') || offsetToken.IsReservedWord('>')) {
+                //ignore
+                offsetToken = NextToken();
+            }
             var offset = Expression();
             if (offset == null) {
                 ShowSyntaxError(offsetToken);

@@ -2,7 +2,7 @@
   "profiles": {
     "Asm68": {
       "commandName": "Project",
-      "commandLineArgs": "-6801 6801.asm",
+      "commandLineArgs": "-6301 6801.asm",
       "workingDirectory": "D:\\8bit\\Asm8"
     }
   }

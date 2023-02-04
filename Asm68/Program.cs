@@ -9,6 +9,7 @@ namespace Asm68
         {
             Mc6800,
             Mc6801,
+            Hd6301,
             Mb8861
         };
 
@@ -21,6 +22,7 @@ namespace Asm68
                 cpuType = option switch
                 {
                     "6801" => CpuType.Mc6801,
+                    "6301" => CpuType.Hd6301,
                     "8861" => CpuType.Mb8861,
                     _ => cpuType
                 };
@@ -29,6 +31,7 @@ namespace Asm68
             var assembler = cpuType switch
             {
                 CpuType.Mc6801 => new Inu.Assembler.Mc6801.Assembler(),
+                CpuType.Hd6301 => new Inu.Assembler.Hd6301.Assembler(),
                 CpuType.Mb8861 => new Inu.Assembler.Mb8861.Assembler(),
                 _ => new Assembler()
             };

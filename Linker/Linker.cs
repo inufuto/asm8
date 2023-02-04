@@ -94,15 +94,12 @@ namespace Inu.Linker
                 }
 
                 {
-                    var changed=true;
-                    while (changed)
-                    {
+                    var changed = true;
+                    while (changed) {
                         changed = false;
-                        foreach (var library in libraries)
-                        {
+                        foreach (var library in libraries) {
                             var objects = new HashSet<Assembler.Object>();
-                            foreach (var external in externals.Select(pair => pair.Value))
-                            {
+                            foreach (var external in externals.Select(pair => pair.Value)) {
                                 if (symbols.TryGetValue(external.Id, out _))
                                     continue;
                                 var name = identifiers.FromId(external.Id);
@@ -110,12 +107,12 @@ namespace Inu.Linker
                                 var obj = library.NameToObject(name);
                                 if (obj == null)
                                     continue;
-                                objects.Add(obj);
-                                changed = true;
+                                if (objects.Add(obj)) {
+                                    changed = true;
+                                }
                             }
 
-                            foreach (var @object in objects)
-                            {
+                            foreach (var @object in objects) {
                                 ReadObject(@object);
                             }
                         }
