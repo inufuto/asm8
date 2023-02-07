@@ -22,7 +22,7 @@ namespace Inu.Assembler.Mc6801
         public const int STD = MinId + 13;
         public const int SUBD = MinId + 14;
         public const int TIM = MinId + 15;
-        protected const int NextId = MinId + 16;
+        protected new const int NextId = MinId + 16;
 
         public new static readonly Dictionary<int, string> Words = new Dictionary<int, string>()
         {
