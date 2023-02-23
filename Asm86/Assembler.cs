@@ -327,7 +327,7 @@ namespace Inu.Assembler.I8086
                 return false;
             }
             if (rm != null) {
-                if ((leftValue != null && leftValue.Value != 0) || rm == 0b110) {
+                if (leftValue != null && (leftValue.Value != 0 || rm == 0b110)) {
                     if (IsSignedByte(leftValue)) {
                         // mod != 01
                         WriteByte(code);
