@@ -9,9 +9,11 @@ namespace Inu.Assembler.Mc6800
     {
         public Assembler() : base(new Tokenizer()) { }
 
+        protected Assembler(Inu.Assembler.Tokenizer tokenizer) : base(tokenizer) { }
+
         private void TowModeInstruction(byte instruction)
         {
-            Token token = NextToken();
+            var token = NextToken();
 
             if (token.IsReservedWord('<') || token.IsReservedWord('>')) {
                 //ignore
@@ -66,7 +68,7 @@ namespace Inu.Assembler.Mc6800
 
         private void FourModeInstruction(byte instruction, bool immediateModeAvailable, bool wordRegister)
         {
-            Token token = NextToken();
+            var token = NextToken();
             Address? address;
             if (immediateModeAvailable && token.IsReservedWord('#')) {
                 //  indexed mode
@@ -129,7 +131,7 @@ namespace Inu.Assembler.Mc6800
             WriteWord(LastToken, address);
         }
 
-        private readonly struct FourModeElement
+        protected readonly struct FourModeElement
         {
             public readonly byte Code;
             public readonly bool ImmediateModeAvailable;
@@ -143,7 +145,7 @@ namespace Inu.Assembler.Mc6800
             }
         };
 
-        private static readonly Dictionary<int, FourModeElement> FourModeElements = new Dictionary<int, FourModeElement>{
+        protected static readonly Dictionary<int, FourModeElement> FourModeElements = new Dictionary<int, FourModeElement>{
             {Keyword.SubA, new FourModeElement(0x80,true,false)},
             {Keyword.SubB, new FourModeElement(0xC0,true,false)},
             {Keyword.CmpA, new FourModeElement(0x81,true,false)},
@@ -183,7 +185,7 @@ namespace Inu.Assembler.Mc6800
             return true;
         }
 
-        private static readonly Dictionary<int, byte> BranchElements = new Dictionary<int, byte>{
+        protected static readonly Dictionary<int, byte> BranchElements = new Dictionary<int, byte>{
             {Keyword.Bra, 0x20},
             {Keyword.Bhi, 0x22},
             {Keyword.Bls, 0x23},
@@ -235,7 +237,7 @@ namespace Inu.Assembler.Mc6800
             return true;
         }
 
-        private static readonly Dictionary<int, byte> ImplitElements = new Dictionary<int, byte> {
+        protected static readonly Dictionary<int, byte> ImpliedElements = new Dictionary<int, byte> {
             {Keyword.Nop, 0x01},
             {Keyword.Tap, 0x06},
             {Keyword.Tpa, 0x07},
@@ -296,7 +298,7 @@ namespace Inu.Assembler.Mc6800
             var reservedWord = LastToken as ReservedWord;
             Debug.Assert(reservedWord != null);
             var id = reservedWord.Id;
-            if (!ImplitElements.TryGetValue(id, out byte instruction)) { return false; }
+            if (!ImpliedElements.TryGetValue(id, out byte instruction)) { return false; }
             NextToken();
             WriteByte(instruction);
             return true;
@@ -320,7 +322,7 @@ namespace Inu.Assembler.Mc6800
         };
         private void ConditionalBranch(Address address, byte invertedBits)
         {
-            Token token = LastToken;
+            var token = LastToken;
             if (token is ReservedWord reservedWord) {
                 if (!ConditionElements.TryGetValue(reservedWord.Id, out var instruction)) {
                     ShowSyntaxError(token);
@@ -365,14 +367,14 @@ namespace Inu.Assembler.Mc6800
 
         private void StartIf(IfBlock block)
         {
-            Address address = SymbolAddress(block.ElseId);
+            var address = SymbolAddress(block.ElseId);
             ConditionalBranch(address, 0x01);
         }
 
         private void IfStatement()
         {
             NextToken();
-            IfBlock block = NewIfBlock();
+            var block = NewIfBlock();
             StartIf(block);
         }
 
@@ -385,7 +387,7 @@ namespace Inu.Assembler.Mc6800
                 if (block.ElseId <= 0) {
                     ShowError(LastToken.Position, "Multiple ELSE statement.");
                 }
-                Address address = SymbolAddress(block.EndId);
+                var address = SymbolAddress(block.EndId);
                 UnconditionalBranch(address);
                 DefineSymbol(block.ConsumeElse(), CurrentAddress);
             }
@@ -406,13 +408,9 @@ namespace Inu.Assembler.Mc6800
             if (!(LastBlock() is IfBlock block)) {
                 ShowNoStatementError(LastToken, "IF");
             }
-            else {
-                if (block.ElseId <= 0) {
-                    DefineSymbol(block.EndId, CurrentAddress);
-                }
-                else {
-                    DefineSymbol(block.ConsumeElse(), CurrentAddress);
-                }
+            else
+            {
+                DefineSymbol(block.ElseId <= 0 ? block.EndId : block.ConsumeElse(), CurrentAddress);
                 EndBlock();
             }
             NextToken();
@@ -420,7 +418,7 @@ namespace Inu.Assembler.Mc6800
 
         private void DoStatement()
         {
-            WhileBlock block = NewWhileBlock();
+            var block = NewWhileBlock();
             DefineSymbol(block.BeginId, CurrentAddress);
             NextToken();
         }
@@ -434,15 +432,15 @@ namespace Inu.Assembler.Mc6800
                 return;
             }
 
-            Address repeatAddress = SymbolAddress(block.RepeatId);
+            var repeatAddress = SymbolAddress(block.RepeatId);
             int offset;
             if (repeatAddress.Type == CurrentSegment.Type && (offset = RelativeOffset(repeatAddress)) <= 0 && offset >= -2) {
-                Address address = SymbolAddress(block.BeginId);
+                var address = SymbolAddress(block.BeginId);
                 ConditionalBranch(address, 0x00);
                 block.EraseEndId();
             }
             else {
-                Address address = SymbolAddress(block.EndId);
+                var address = SymbolAddress(block.EndId);
                 ConditionalBranch(address, 0x01);
             }
         }
@@ -455,7 +453,7 @@ namespace Inu.Assembler.Mc6800
             else {
                 if (block.EndId > 0) {
                     DefineSymbol(block.RepeatId, CurrentAddress);
-                    Address address = SymbolAddress(block.BeginId);
+                    var address = SymbolAddress(block.BeginId);
                     UnconditionalBranch(address);
                     DefineSymbol(block.EndId, CurrentAddress);
                 }
@@ -465,13 +463,13 @@ namespace Inu.Assembler.Mc6800
         }
 
         private static readonly Dictionary<int, Action<Assembler>> Actions = new Dictionary<int, Action<Assembler>>{
-            {Keyword.If, assembler=>assembler.IfStatement()},
-            {Keyword.Else, assembler=>assembler.ElseStatement()},
-            {Keyword.EndIf,assembler=>assembler.EndIfStatement()},
-            {Keyword.ElseIf, assembler=>assembler.ElseIfStatement()},
-            {Keyword.Do, assembler=>assembler.DoStatement()},
-            {Keyword.While, assembler=>assembler.WhileStatement()},
-            {Keyword.WEnd, assembler=>assembler.WEndStatement()},
+            {Inu.Assembler.Keyword.If, assembler=>assembler.IfStatement()},
+            {Inu.Assembler.Keyword.Else, assembler=>assembler.ElseStatement()},
+            {Inu.Assembler.Keyword.EndIf,assembler=>assembler.EndIfStatement()},
+            {Inu.Assembler.Keyword.ElseIf, assembler=>assembler.ElseIfStatement()},
+            {Inu.Assembler.Keyword.Do, assembler=>assembler.DoStatement()},
+            {Inu.Assembler.Keyword.While, assembler=>assembler.WhileStatement()},
+            {Inu.Assembler.Keyword.WEnd, assembler=>assembler.WEndStatement()},
         };
 
         public override bool ZeroPageAvailable => true;
@@ -496,7 +494,6 @@ namespace Inu.Assembler.Mc6800
                 return true;
             }
 
-            Token token = LastToken;
             if (!Actions.TryGetValue(reservedWord.Id, out var action)) {
                 return false;
             }

@@ -326,11 +326,11 @@ namespace Inu.Assembler.Mc6809
                     return true;
                 case Keyword.LeaU:
                     NextToken();
-                    IndexedMode(0x32);
+                    IndexedMode(0x33);
                     return true;
                 case Keyword.LeaS:
                     NextToken();
-                    IndexedMode(0x33);
+                    IndexedMode(0x32);
                     return true;
                 case Keyword.Exg:
                     NextToken();

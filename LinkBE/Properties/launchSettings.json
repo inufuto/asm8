@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "LinkBE": {
+      "commandName": "Project",
+      "commandLineArgs": "lift.bin 2900 5000 0080 Startup.obj  Actor.obj Item.obj Lift.obj Main.obj Man.obj Math.obj  Monster.obj Movable.obj Point.obj Sprite.obj Stage.obj Stages.obj  Status.obj Vram.obj VVram.obj Chars.obj Print.obj ScanKeys.obj  Sound.obj StageA.obj VramA.obj VVramA.obj  ..\\..\\cate\\cate68.lib",
+      "workingDirectory": "D:\\8bit\\jr800\\lift800"
+    }
+  }
+}

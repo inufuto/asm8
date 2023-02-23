@@ -39,7 +39,7 @@ namespace Inu.Assembler
         public const int WEnd = MinId + 28;
         public const int While = MinId + 29;
 
-        public const int NextId = MinId + 30;
+        protected const int NextId = MinId + 30;
 
         public static readonly Dictionary<int, string> Words = new Dictionary<int, string>()
         {
