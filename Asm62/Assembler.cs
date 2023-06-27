@@ -512,6 +512,7 @@ namespace Inu.Assembler.Sc62015
                     }
                 }
             }
+            ShowSyntaxError(LastToken);
         }
 
 
@@ -661,8 +662,8 @@ namespace Inu.Assembler.Sc62015
                         return;
                     }
                 }
-                ShowSyntaxError(LastToken);
             }
+            ShowSyntaxError(LastToken);
         }
 
         private void MVP()
@@ -811,8 +812,8 @@ namespace Inu.Assembler.Sc62015
                         return;
                     }
                 }
-                ShowSyntaxError(LastToken);
             }
+            ShowSyntaxError(LastToken);
         }
 
         private void MVL()
@@ -903,6 +904,7 @@ namespace Inu.Assembler.Sc62015
                                 WriteByte(0xd3);
                                 WriteByte(leftToken, preByte1.Offset);
                                 WritePointer(rightToken, offset);
+                                return;
                             }
                         }
                         else {
@@ -934,31 +936,39 @@ namespace Inu.Assembler.Sc62015
                             if (offset != null) {
                                 WriteByte(rightToken, offset);
                             }
+                            return;
                         }
                     }
                 }
             }
+            ShowSyntaxError(LastToken);
         }
 
         private void InterInternal(int code)
         {
-            if (!LastToken.IsReservedWord('(')) return;
-            NextToken();
-            var leftToken = LastToken;
-            var preByte1 = ParsePreByte(PreBytePurpose.First);
-            AcceptReservedWord(')');
-            AcceptReservedWord(',');
-            AcceptReservedWord('(');
-            var rightToken = LastToken;
-            var preByte2 = ParsePreByte(PreBytePurpose.Second);
-            AcceptReservedWord(')');
-            var preByte = preByte1.Code | preByte2.Code;
-            if (preByte != 0) {
-                WriteByte(preByte);
+            if (LastToken.IsReservedWord('('))
+            {
+                NextToken();
+                var leftToken = LastToken;
+                var preByte1 = ParsePreByte(PreBytePurpose.First);
+                AcceptReservedWord(')');
+                AcceptReservedWord(',');
+                AcceptReservedWord('(');
+                var rightToken = LastToken;
+                var preByte2 = ParsePreByte(PreBytePurpose.Second);
+                AcceptReservedWord(')');
+                var preByte = preByte1.Code | preByte2.Code;
+                if (preByte != 0)
+                {
+                    WriteByte(preByte);
+                }
+
+                WriteByte(code);
+                WriteByte(leftToken, preByte1.Offset);
+                WriteByte(rightToken, preByte2.Offset);
+                return;
             }
-            WriteByte(code);
-            WriteByte(leftToken, preByte1.Offset);
-            WriteByte(rightToken, preByte2.Offset);
+            ShowSyntaxError(LastToken);
         }
 
         private void EX()
@@ -1023,6 +1033,7 @@ namespace Inu.Assembler.Sc62015
                     ShowInvalidRegister(LastToken);
                 }
             }
+            ShowSyntaxError(LastToken);
         }
 
         private void POPS()
@@ -1052,6 +1063,7 @@ namespace Inu.Assembler.Sc62015
                     ShowInvalidRegister(LastToken);
                 }
             }
+            ShowSyntaxError(LastToken);
         }
 
         private void PUSHU()
@@ -1077,6 +1089,7 @@ namespace Inu.Assembler.Sc62015
                     ShowInvalidRegister(LastToken);
                 }
             }
+            ShowSyntaxError(LastToken);
         }
 
         private void POPU()
@@ -1102,6 +1115,7 @@ namespace Inu.Assembler.Sc62015
                     ShowInvalidRegister(LastToken);
                 }
             }
+            ShowSyntaxError(LastToken);
         }
 
         private void ADDorSUB(int code)
@@ -1191,6 +1205,7 @@ namespace Inu.Assembler.Sc62015
                     }
                 }
             }
+            ShowSyntaxError(LastToken);
         }
 
         private void ADCorSBC(int code)
@@ -1246,6 +1261,7 @@ namespace Inu.Assembler.Sc62015
                     }
                 }
             }
+            ShowSyntaxError(LastToken);
         }
 
         private void ADCLorSBCL(int code)
@@ -1284,6 +1300,7 @@ namespace Inu.Assembler.Sc62015
                 WriteByte(rightToken, preByte2.Offset);
                 return;
             }
+            ShowSyntaxError(LastToken);
         }
 
         private void INCorDEC(int code)
@@ -1309,6 +1326,7 @@ namespace Inu.Assembler.Sc62015
                 WriteByte(token, preByte.Offset);
                 return;
             }
+            ShowSyntaxError(LastToken);
         }
 
         private void PMDF()
@@ -1340,6 +1358,7 @@ namespace Inu.Assembler.Sc62015
                     return;
                 }
             }
+            ShowSyntaxError(LastToken);
         }
 
         private void CMP()
@@ -1416,6 +1435,7 @@ namespace Inu.Assembler.Sc62015
                     }
                 }
             }
+            ShowSyntaxError(LastToken);
         }
 
         private void CMP(int code, int size)
@@ -1455,6 +1475,7 @@ namespace Inu.Assembler.Sc62015
                 WriteByte(rightToken, preByte2.Offset);
                 return;
             }
+            ShowSyntaxError(LastToken);
         }
 
         private void BitOp(int code)
@@ -1514,6 +1535,7 @@ namespace Inu.Assembler.Sc62015
                     }
                     WriteByte(code | 0x03);
                     WriteByte(leftToken, preByte1.Offset);
+                    return;
                 }
                 if (LastToken.IsReservedWord('(')) {
                     NextToken();
@@ -1544,6 +1566,7 @@ namespace Inu.Assembler.Sc62015
                     }
                 }
             }
+            ShowSyntaxError(LastToken);
         }
 
         private void TEST()
@@ -1591,6 +1614,7 @@ namespace Inu.Assembler.Sc62015
                     }
                     WriteByte(0x67);
                     WriteByte(leftToken, preByte1.Offset);
+                    return;
                 }
                 {
                     var rightToken = LastToken;
@@ -1606,6 +1630,7 @@ namespace Inu.Assembler.Sc62015
                     }
                 }
             }
+            ShowSyntaxError(LastToken);
         }
         private void Shift(int code)
         {
@@ -1626,6 +1651,7 @@ namespace Inu.Assembler.Sc62015
                 WriteByte(token, preByte.Offset);
                 return;
             }
+            ShowSyntaxError(LastToken);
         }
 
         private void DSL(int code)
@@ -1697,7 +1723,9 @@ namespace Inu.Assembler.Sc62015
             if (address != null) {
                 WriteByte(code);
                 WriteWord(token, address);
+                return;
             }
+            ShowSyntaxError(LastToken);
         }
 
         private void JPF(int code)
@@ -1707,7 +1735,9 @@ namespace Inu.Assembler.Sc62015
             if (address != null) {
                 WriteByte(code);
                 WritePointer(token, address);
+                return;
             }
+            ShowSyntaxError(LastToken);
         }
 
         private void SWAP()
