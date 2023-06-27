@@ -20,6 +20,18 @@ namespace Inu.Assembler.Sc62015
             { Keyword.BP, 0xec },
             { Keyword.PX, 0xed },
             { Keyword.PY, 0xee },
+            { Keyword.IMR, 0xfb },
+            { Keyword.SI, 0xda },
+            { Keyword.DI, 0xdd },
+            { Keyword.BX, 0xd4 },
+            { Keyword.CX, 0xd6 },
+            { Keyword.DX, 0xd8 },
+            { Keyword.BL, 0xd4 },
+            { Keyword.BH, 0xd5 },
+            { Keyword.CL, 0xd6 },
+            { Keyword.CH, 0xd7 },
+            { Keyword.DL, 0xd8 },
+            { Keyword.DH, 0xd9 },
         };
 
         private class PreByte
@@ -108,11 +120,9 @@ namespace Inu.Assembler.Sc62015
             if (LastToken is ReservedWord reservedWord && InternalRamAddresses.TryGetValue(reservedWord.Id, out var address)) {
                 NextToken();
                 if (purpose.HasFlag(PreBytePurpose.First)) {
-                    AcceptReservedWord(')');
                     return new PreByte(0x30, new Address(address), PreBytePurpose.First);
                 }
                 if (purpose.HasFlag(PreBytePurpose.Second)) {
-                    AcceptReservedWord(')');
                     return new PreByte(0x22, new Address(address), PreBytePurpose.Second);
                 }
             }
@@ -1281,7 +1291,6 @@ namespace Inu.Assembler.Sc62015
                     }
                 }
             }
-
             {
                 var leftToken = LastToken;
                 var preByte = ParsePreByte(PreBytePurpose.First);
