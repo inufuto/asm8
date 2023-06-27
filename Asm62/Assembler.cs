@@ -15,6 +15,13 @@ namespace Inu.Assembler.Sc62015
         private static readonly int[] RegisterIds = { Keyword.A, Keyword.IL, Keyword.BA, Keyword.I, Keyword.X, Keyword.Y, Keyword.U, Keyword.S };
         private static readonly int[] RegisterSizes = { 1, 1, 2, 2, 3, 3, 3, 3 };
 
+        private static readonly Dictionary<int, int> InternalRamAddresses = new()
+        {
+            { Keyword.BP, 0xec },
+            { Keyword.PX, 0xed },
+            { Keyword.PY, 0xee },
+        };
+
         private class PreByte
         {
             public readonly int Code;
@@ -96,8 +103,21 @@ namespace Inu.Assembler.Sc62015
         }
 
 
-        private PreByte ParsePreByte(PreBytePurpose purpose)
+        private PreByte? ParsePreByte(PreBytePurpose purpose)
         {
+            if (LastToken is ReservedWord reservedWord && InternalRamAddresses.TryGetValue(reservedWord.Id, out var address)) {
+                NextToken();
+                if (purpose.HasFlag(PreBytePurpose.First)) {
+                    AcceptReservedWord(')');
+                    return new PreByte(0x30, new Address(address), PreBytePurpose.First);
+                }
+                if (purpose.HasFlag(PreBytePurpose.Second)) {
+                    AcceptReservedWord(')');
+                    return new PreByte(0x22, new Address(address), PreBytePurpose.Second);
+                }
+            }
+            if (!LastToken.IsReservedWord('(')) return null;
+            NextToken();
             if (LastToken.IsReservedWord(Keyword.BP)) {
                 NextToken();
                 if (LastToken.IsReservedWord('+')) {
@@ -105,6 +125,7 @@ namespace Inu.Assembler.Sc62015
                     if (LastToken.IsReservedWord(Keyword.PX)) {
                         if (purpose.HasFlag(PreBytePurpose.First)) {
                             NextToken();
+                            AcceptReservedWord(')');
                             return new PreByte(0x24, PreBytePurpose.First);
                         }
                         ShowInvalidAddressing(LastToken);
@@ -112,33 +133,45 @@ namespace Inu.Assembler.Sc62015
                     if (LastToken.IsReservedWord(Keyword.PY)) {
                         if (purpose.HasFlag(PreBytePurpose.Second)) {
                             NextToken();
+                            AcceptReservedWord(')');
                             return new PreByte(0x21, PreBytePurpose.Second);
                         }
                         ShowInvalidAddressing(LastToken);
                     }
-                    return new PreByte(0, Expression(), PreBytePurpose.First | PreBytePurpose.Second);
+                    var preByte = new PreByte(0, Expression(), PreBytePurpose.First | PreBytePurpose.Second);
+                    AcceptReservedWord(')');
+                    return preByte;
                 }
+                AcceptReservedWord(')');
                 return new PreByte(0, PreBytePurpose.First | PreBytePurpose.Second);
             }
             if (LastToken.IsReservedWord(Keyword.PX)) {
                 if (purpose.HasFlag(PreBytePurpose.First)) {
                     NextToken();
-                    return new PreByte(0x34, Offset(), PreBytePurpose.First);
+                    var preByte = new PreByte(0x34, Offset(), PreBytePurpose.First);
+                    AcceptReservedWord(')');
+                    return preByte;
                 }
                 ShowInvalidAddressing(LastToken);
             }
             if (LastToken.IsReservedWord(Keyword.PY)) {
                 if (purpose.HasFlag(PreBytePurpose.Second)) {
                     NextToken();
-                    return new PreByte(0x23, Offset(), PreBytePurpose.Second);
+                    var preByte = new PreByte(0x23, Offset(), PreBytePurpose.Second);
+                    AcceptReservedWord(')');
+                    return preByte;
                 }
                 ShowInvalidAddressing(LastToken);
             }
             if (purpose.HasFlag(PreBytePurpose.First)) {
-                return new PreByte(0x30, Expression(), PreBytePurpose.First);
+                var preByte = new PreByte(0x30, Expression(), PreBytePurpose.First);
+                AcceptReservedWord(')');
+                return preByte;
             }
             if (purpose.HasFlag(PreBytePurpose.Second)) {
-                return new PreByte(0x22, Expression(), PreBytePurpose.Second);
+                var preByte = new PreByte(0x22, Expression(), PreBytePurpose.Second);
+                AcceptReservedWord(')');
+                return preByte;
             }
             ShowInvalidAddressing(LastToken);
             return new PreByte(0, 0);
@@ -152,26 +185,26 @@ namespace Inu.Assembler.Sc62015
             offset = null;
             if (!LastToken.IsReservedWord('[')) return false;
             NextToken();
-            if (LastToken.IsReservedWord('(')) {
-                NextToken();
+            {
                 preByte = ParsePreByte(preBytePurpose);
-                AcceptReservedWord(')');
-                // internal RAM
-                if (LastToken.IsReservedWord('+')) {
-                    NextToken();
-                    secondCode = 0x80;
-                    offset = Expression();
+                if (preByte != null) {
+                    // internal RAM
+                    if (LastToken.IsReservedWord('+')) {
+                        NextToken();
+                        secondCode = 0x80;
+                        offset = Expression();
+                    }
+                    else if (LastToken.IsReservedWord('-')) {
+                        NextToken();
+                        secondCode = 0xc0;
+                        offset = Expression();
+                    }
+                    else {
+                        secondCode = 0x00;
+                    }
+                    AcceptReservedWord(']');
+                    return true;
                 }
-                else if (LastToken.IsReservedWord('-')) {
-                    NextToken();
-                    secondCode = 0xc0;
-                    offset = Expression();
-                }
-                else {
-                    secondCode = 0x00;
-                }
-                AcceptReservedWord(']');
-                return true;
             }
             {
                 offset = Expression();
@@ -264,18 +297,19 @@ namespace Inu.Assembler.Sc62015
                             }
                         }
                     }
-                    if (LastToken.IsReservedWord('(')) {
-                        NextToken();
-                        // from internal RAM
+                    {
                         var offsetToken = LastToken;
                         var preByte = ParsePreByte(PreBytePurpose.First | PreBytePurpose.Second);
-                        AcceptReservedWord(')');
-                        if (preByte.Code != 0) {
-                            WriteByte(preByte.Code);
+                        if (preByte != null) {
+                            // from internal RAM
+                            if (preByte.Code != 0) {
+                                WriteByte(preByte.Code);
+                            }
+
+                            WriteByte(0x80 | leftRegister.Value);
+                            WriteByte(offsetToken, preByte.Offset);
+                            return;
                         }
-                        WriteByte(0x80 | leftRegister.Value);
-                        WriteByte(offsetToken, preByte.Offset);
-                        return;
                     }
                     {
                         // immediate
@@ -376,64 +410,67 @@ namespace Inu.Assembler.Sc62015
                         else {
                             nextPurpose = PreBytePurpose.First | PreBytePurpose.Second;
                         }
-                        if (LastToken.IsReservedWord('(')) {
-                            NextToken();
+                        {
                             // from internal RAM
                             var preByte2 = ParsePreByte(nextPurpose);
-                            AcceptReservedWord(')');
-                            var preByte = preByte1 != null ? preByte1.Code | preByte2.Code : preByte2.Code;
-                            if (preByte != 0) {
-                                WriteByte(preByte);
-                            }
-                            if (secondCode == null) {
-                                if (offset != null) {
-                                    WriteByte(0xd8);
-                                    WritePointer(leftToken, offset);
-                                    WriteByte(rightToken, preByte2.Offset);
-                                    return;
+                            if (preByte2 != null) {
+                                var preByte = preByte1 != null ? preByte1.Code | preByte2.Code : preByte2.Code;
+                                if (preByte != 0) {
+                                    WriteByte(preByte);
                                 }
-                            }
-                            else {
-                                if (preByte1 == null) {
-                                    WriteByte(0xe8);
-                                    WriteByte(secondCode.Value);
-                                    WriteByte(leftToken, preByte2.Offset);
+
+                                if (secondCode == null) {
                                     if (offset != null) {
-                                        WriteByte(rightToken, offset);
+                                        WriteByte(0xd8);
+                                        WritePointer(leftToken, offset);
+                                        WriteByte(rightToken, preByte2.Offset);
+                                        return;
                                     }
                                 }
                                 else {
-                                    WriteByte(0xf8);
-                                    WriteByte(secondCode.Value);
-                                    WriteByte(leftToken, preByte1.Offset);
-                                    WriteByte(leftToken, preByte2.Offset);
-                                    if (offset != null) {
-                                        WriteByte(rightToken, offset);
+                                    if (preByte1 == null) {
+                                        WriteByte(0xe8);
+                                        WriteByte(secondCode.Value);
+                                        WriteByte(leftToken, preByte2.Offset);
+                                        if (offset != null) {
+                                            WriteByte(rightToken, offset);
+                                        }
+                                    }
+                                    else {
+                                        WriteByte(0xf8);
+                                        WriteByte(secondCode.Value);
+                                        WriteByte(leftToken, preByte1.Offset);
+                                        WriteByte(leftToken, preByte2.Offset);
+                                        if (offset != null) {
+                                            WriteByte(rightToken, offset);
+                                        }
                                     }
                                 }
+
+                                return;
                             }
-                            return;
                         }
                     }
                 }
             }
-            if (LastToken.IsReservedWord('(')) {
-                // to internal RAM
-                var leftToken = NextToken();
-                {
-                    var offsetToken = LastToken;
-                    var preByte1 = ParsePreByte(PreBytePurpose.First | PreBytePurpose.Second);
-                    AcceptReservedWord(')');
+            {
+                var leftToken = LastToken;
+                var preByte1 = ParsePreByte(PreBytePurpose.First | PreBytePurpose.Second);
+                if (preByte1 != null) {
+                    // to internal RAM
                     AcceptReservedWord(',');
                     {
                         var rightToken = LastToken;
-                        var nextPurpose = preByte1.Purpose.HasFlag(PreBytePurpose.Second) ? 0 : PreBytePurpose.Second;
+                        var nextPurpose = preByte1.Purpose.HasFlag(PreBytePurpose.Second)
+                            ? 0
+                            : PreBytePurpose.Second;
                         if (ParseExternalRam(nextPurpose, out var secondCode, out var preByte2, out var offset)) {
                             if (secondCode == null) {
                                 if (offset != null) {
                                     if (preByte1.Code != 0) {
                                         WriteByte(preByte1.Code);
                                     }
+
                                     WriteByte(0xd0);
                                     WriteByte(leftToken, preByte1.Offset);
                                     WritePointer(rightToken, offset);
@@ -445,18 +482,22 @@ namespace Inu.Assembler.Sc62015
                                     if (preByte1.Code != 0) {
                                         WriteByte(preByte1.Code);
                                     }
+
                                     WriteByte(0xe0);
                                     WriteByte(secondCode.Value);
                                     WriteByte(leftToken, preByte1.Offset);
                                     if (offset != null) {
                                         WriteByte(rightToken, offset);
                                     }
+
                                     return;
                                 }
+
                                 var preByte = preByte1.Code | preByte2.Code;
                                 if (preByte != 0) {
                                     WriteByte(preByte);
                                 }
+
                                 WriteByte(0xf0);
                                 WriteByte(secondCode.Value);
                                 WriteByte(rightToken, preByte1.Offset);
@@ -464,6 +505,7 @@ namespace Inu.Assembler.Sc62015
                                 if (offset != null) {
                                     WriteByte(rightToken, offset);
                                 }
+
                                 return;
                             }
                         }
@@ -476,27 +518,29 @@ namespace Inu.Assembler.Sc62015
                             if (preByte1.Code != 0) {
                                 WriteByte(preByte1.Code);
                             }
+
                             WriteByte(0xa0 | rightRegister.Value);
-                            WriteByte(offsetToken, preByte1.Offset);
+                            WriteByte(leftToken, preByte1.Offset);
                             return;
                         }
                     }
-                    if (preByte1.Purpose.HasFlag(PreBytePurpose.First) && LastToken.IsReservedWord('(')) {
-                        NextToken();
-                        // from internal RAM
+                    if (preByte1.Purpose.HasFlag(PreBytePurpose.First)) {
                         var valueToken = LastToken;
                         var preByte2 = ParsePreByte(PreBytePurpose.Second);
-                        AcceptReservedWord(')');
-                        var code = preByte1.Code | preByte2.Code;
-                        if (code != 0) {
-                            WriteByte(code);
+                        if (preByte2 != null) {
+                            NextToken();
+                            // from internal RAM
+                            var code = preByte1.Code | preByte2.Code;
+                            if (code != 0) {
+                                WriteByte(code);
+                            }
+                            WriteByte(0xc8);
+                            WriteByte(leftToken, preByte1.Offset);
+                            WriteByte(valueToken, preByte2.Offset);
+                            return;
                         }
-
-                        WriteByte(0xc8);
-                        WriteByte(offsetToken, preByte1.Offset);
-                        WriteByte(valueToken, preByte2.Offset);
-                        return;
                     }
+
                     {
                         // immediate
                         var valueToken = LastToken;
@@ -505,8 +549,9 @@ namespace Inu.Assembler.Sc62015
                             if (preByte1.Code != 0) {
                                 WriteByte(preByte1.Code);
                             }
+
                             WriteByte(0xcc);
-                            WriteByte(offsetToken, preByte1.Offset);
+                            WriteByte(leftToken, preByte1.Offset);
                             WriteByte(valueToken, value);
                             return;
                         }
@@ -539,128 +584,132 @@ namespace Inu.Assembler.Sc62015
                             nextPurpose = PreBytePurpose.First | PreBytePurpose.Second;
                         }
 
-                        if (LastToken.IsReservedWord('(')) {
-                            NextToken();
+                        {
                             // from internal RAM
                             var preByte2 = ParsePreByte(nextPurpose);
-                            AcceptReservedWord(')');
-                            var preByte = preByte1 != null ? preByte1.Code | preByte2.Code : preByte2.Code;
-                            if (preByte != 0) {
-                                WriteByte(preByte);
-                            }
-
-                            if (secondCode == null) {
-                                if (offset != null) {
-                                    WriteByte(0xd9);
-                                    WritePointer(leftToken, offset);
-                                    WriteByte(rightToken, preByte2.Offset);
-                                    return;
+                            if (preByte2 != null) {
+                                var preByte = preByte1 != null ? preByte1.Code | preByte2.Code : preByte2.Code;
+                                if (preByte != 0) {
+                                    WriteByte(preByte);
                                 }
-                            }
-                            else {
-                                if (preByte1 == null) {
-                                    WriteByte(0xe9);
-                                    WriteByte(secondCode.Value);
-                                    WriteByte(leftToken, preByte2.Offset);
+
+                                if (secondCode == null) {
                                     if (offset != null) {
-                                        WriteByte(rightToken, offset);
+                                        WriteByte(0xd9);
+                                        WritePointer(leftToken, offset);
+                                        WriteByte(rightToken, preByte2.Offset);
+                                        return;
                                     }
                                 }
                                 else {
-                                    WriteByte(0xf9);
-                                    WriteByte(secondCode.Value);
-                                    WriteByte(leftToken, preByte1.Offset);
-                                    WriteByte(leftToken, preByte2.Offset);
-                                    if (offset != null) {
-                                        WriteByte(rightToken, offset);
+                                    if (preByte1 == null) {
+                                        WriteByte(0xe9);
+                                        WriteByte(secondCode.Value);
+                                        WriteByte(leftToken, preByte2.Offset);
+                                        if (offset != null) {
+                                            WriteByte(rightToken, offset);
+                                        }
+                                    }
+                                    else {
+                                        WriteByte(0xf9);
+                                        WriteByte(secondCode.Value);
+                                        WriteByte(leftToken, preByte1.Offset);
+                                        WriteByte(leftToken, preByte2.Offset);
+                                        if (offset != null) {
+                                            WriteByte(rightToken, offset);
+                                        }
                                     }
                                 }
+                                return;
                             }
-
-                            return;
                         }
                     }
                 }
             }
             {
-                AcceptReservedWord('(');
-                // to Internal RAM
                 var preByte1 = ParsePreByte(PreBytePurpose.First | PreBytePurpose.Second);
-                AcceptReservedWord(')');
-                AcceptReservedWord(',');
-                {
-                    var rightToken = LastToken;
-                    var nextPurpose = preByte1.Purpose.HasFlag(PreBytePurpose.Second) ? 0 : PreBytePurpose.Second;
-                    if (ParseExternalRam(nextPurpose, out var secondCode, out var preByte2, out var offset)) {
-                        if (secondCode == null) {
-                            if (offset != null) {
-                                if (preByte1.Code != 0) {
-                                    WriteByte(preByte1.Code);
+                if (preByte1 != null) {
+                    // to Internal RAM
+                    AcceptReservedWord(',');
+                    {
+                        var rightToken = LastToken;
+                        var nextPurpose = preByte1.Purpose.HasFlag(PreBytePurpose.Second) ? 0 : PreBytePurpose.Second;
+                        if (ParseExternalRam(nextPurpose, out var secondCode, out var preByte2, out var offset)) {
+                            if (secondCode == null) {
+                                if (offset != null) {
+                                    if (preByte1.Code != 0) {
+                                        WriteByte(preByte1.Code);
+                                    }
+
+                                    WriteByte(0xd1);
+                                    WriteByte(leftToken, preByte1.Offset);
+                                    WritePointer(rightToken, offset);
+                                    return;
+                                }
+                            }
+                            else {
+                                if (preByte2 == null) {
+                                    if (preByte1.Code != 0) {
+                                        WriteByte(preByte1.Code);
+                                    }
+
+                                    WriteByte(0xe1);
+                                    WriteByte(secondCode.Value);
+                                    WriteByte(leftToken, preByte1.Offset);
+                                    if (offset != null) {
+                                        WriteByte(rightToken, offset);
+                                    }
+
+                                    return;
                                 }
 
-                                WriteByte(0xd1);
-                                WriteByte(leftToken, preByte1.Offset);
-                                WritePointer(rightToken, offset);
-                                return;
-                            }
-                        }
-                        else {
-                            if (preByte2 == null) {
-                                if (preByte1.Code != 0) {
-                                    WriteByte(preByte1.Code);
+                                var preByte = preByte1.Code | preByte2.Code;
+                                if (preByte != 0) {
+                                    WriteByte(preByte);
                                 }
-                                WriteByte(0xe1);
+
+                                WriteByte(0xf1);
                                 WriteByte(secondCode.Value);
-                                WriteByte(leftToken, preByte1.Offset);
+                                WriteByte(rightToken, preByte1.Offset);
+                                WriteByte(rightToken, preByte2.Offset);
                                 if (offset != null) {
                                     WriteByte(rightToken, offset);
                                 }
+
                                 return;
                             }
+                        }
+                    }
+                    if (preByte1.Purpose.HasFlag(PreBytePurpose.First)) {
+                        var valueToken = LastToken;
+                        var preByte2 = ParsePreByte(PreBytePurpose.Second);
+                        if (preByte2 != null) {
+                            // from internal RAM
                             var preByte = preByte1.Code | preByte2.Code;
                             if (preByte != 0) {
                                 WriteByte(preByte);
                             }
-                            WriteByte(0xf1);
-                            WriteByte(secondCode.Value);
-                            WriteByte(rightToken, preByte1.Offset);
-                            WriteByte(rightToken, preByte2.Offset);
-                            if (offset != null) {
-                                WriteByte(rightToken, offset);
-                            }
+
+                            WriteByte(0xc9);
+                            WriteByte(leftToken, preByte1.Offset);
+                            WriteByte(valueToken, preByte2.Offset);
                             return;
                         }
                     }
-                }
-                if (preByte1.Purpose.HasFlag(PreBytePurpose.First) && LastToken.IsReservedWord('(')) {
-                    NextToken();
-                    // from internal RAM
-                    var valueToken = LastToken;
-                    var preByte2 = ParsePreByte(PreBytePurpose.Second);
                     {
-                        AcceptReservedWord(')');
-                        var preByte = preByte1.Code | preByte2.Code;
-                        if (preByte != 0) {
-                            WriteByte(preByte);
+                        // immediate
+                        var valueToken = LastToken;
+                        var value = Expression();
+                        if (value != null) {
+                            if (preByte1.Code != 0) {
+                                WriteByte(preByte1.Code);
+                            }
+
+                            WriteByte(0xcd);
+                            WriteByte(leftToken, preByte1.Offset);
+                            WriteWord(valueToken, value);
+                            return;
                         }
-                        WriteByte(0xc9);
-                        WriteByte(leftToken, preByte1.Offset);
-                        WriteByte(valueToken, preByte2.Offset);
-                        return;
-                    }
-                }
-                {
-                    // immediate
-                    var valueToken = LastToken;
-                    var value = Expression();
-                    if (value != null) {
-                        if (preByte1.Code != 0) {
-                            WriteByte(preByte1.Code);
-                        }
-                        WriteByte(0xcd);
-                        WriteByte(leftToken, preByte1.Offset);
-                        WriteWord(valueToken, value);
-                        return;
                     }
                 }
             }
@@ -688,129 +737,130 @@ namespace Inu.Assembler.Sc62015
                         else {
                             nextPurpose = PreBytePurpose.First | PreBytePurpose.Second;
                         }
-
-                        if (LastToken.IsReservedWord('(')) {
-                            NextToken();
-                            // from internal RAM
+                        {
                             var preByte2 = ParsePreByte(nextPurpose);
-                            AcceptReservedWord(')');
-                            var preByte = preByte1 != null ? preByte1.Code | preByte2.Code : preByte2.Code;
-                            if (preByte != 0) {
-                                WriteByte(preByte);
-                            }
-
-                            if (secondCode == null) {
-                                if (offset != null) {
-                                    WriteByte(0xda);
-                                    WritePointer(leftToken, offset);
-                                    WriteByte(rightToken, preByte2.Offset);
-                                    return;
+                            if (preByte2 != null) {
+                                // from internal RAM
+                                var preByte = preByte1 != null ? preByte1.Code | preByte2.Code : preByte2.Code;
+                                if (preByte != 0) {
+                                    WriteByte(preByte);
                                 }
-                            }
-                            else {
-                                if (preByte1 == null) {
-                                    WriteByte(0xea);
-                                    WriteByte(secondCode.Value);
-                                    WriteByte(leftToken, preByte2.Offset);
+                                if (secondCode == null) {
                                     if (offset != null) {
-                                        WriteByte(rightToken, offset);
+                                        WriteByte(0xda);
+                                        WritePointer(leftToken, offset);
+                                        WriteByte(rightToken, preByte2.Offset);
+                                        return;
                                     }
                                 }
                                 else {
-                                    WriteByte(0xfa);
-                                    WriteByte(secondCode.Value);
-                                    WriteByte(leftToken, preByte1.Offset);
-                                    WriteByte(leftToken, preByte2.Offset);
-                                    if (offset != null) {
-                                        WriteByte(rightToken, offset);
+                                    if (preByte1 == null) {
+                                        WriteByte(0xea);
+                                        WriteByte(secondCode.Value);
+                                        WriteByte(leftToken, preByte2.Offset);
+                                        if (offset != null) {
+                                            WriteByte(rightToken, offset);
+                                        }
+                                    }
+                                    else {
+                                        WriteByte(0xfa);
+                                        WriteByte(secondCode.Value);
+                                        WriteByte(leftToken, preByte1.Offset);
+                                        WriteByte(leftToken, preByte2.Offset);
+                                        if (offset != null) {
+                                            WriteByte(rightToken, offset);
+                                        }
                                     }
                                 }
+                                return;
                             }
-
-                            return;
                         }
                     }
                 }
             }
             {
-                AcceptReservedWord('(');
-                // to Internal RAM
                 var preByte1 = ParsePreByte(PreBytePurpose.First | PreBytePurpose.Second);
-                AcceptReservedWord(')');
-                AcceptReservedWord(',');
-                {
-                    var rightToken = LastToken;
-                    var nextPurpose = preByte1.Purpose.HasFlag(PreBytePurpose.Second) ? 0 : PreBytePurpose.Second;
-                    if (ParseExternalRam(nextPurpose, out var secondCode, out var preByte2, out var offset)) {
-                        if (secondCode == null) {
-                            if (offset != null) {
-                                if (preByte1.Code != 0) {
-                                    WriteByte(preByte1.Code);
+                if (preByte1 != null) {
+                    // to Internal RAM
+                    AcceptReservedWord(',');
+                    {
+                        var rightToken = LastToken;
+                        var nextPurpose = preByte1.Purpose.HasFlag(PreBytePurpose.Second) ? 0 : PreBytePurpose.Second;
+                        if (ParseExternalRam(nextPurpose, out var secondCode, out var preByte2, out var offset)) {
+                            if (secondCode == null) {
+                                if (offset != null) {
+                                    if (preByte1.Code != 0) {
+                                        WriteByte(preByte1.Code);
+                                    }
+
+                                    WriteByte(0xd1);
+                                    WriteByte(leftToken, preByte1.Offset);
+                                    WritePointer(rightToken, offset);
+                                    return;
+                                }
+                            }
+                            else {
+                                if (preByte2 == null) {
+                                    if (preByte1.Code != 0) {
+                                        WriteByte(preByte1.Code);
+                                    }
+
+                                    WriteByte(0xe1);
+                                    WriteByte(secondCode.Value);
+                                    WriteByte(leftToken, preByte1.Offset);
+                                    if (offset != null) {
+                                        WriteByte(rightToken, offset);
+                                    }
+
+                                    return;
                                 }
 
-                                WriteByte(0xd1);
-                                WriteByte(leftToken, preByte1.Offset);
-                                WritePointer(rightToken, offset);
-                                return;
-                            }
-                        }
-                        else {
-                            if (preByte2 == null) {
-                                if (preByte1.Code != 0) {
-                                    WriteByte(preByte1.Code);
+                                var preByte = preByte1.Code | preByte2.Code;
+                                if (preByte != 0) {
+                                    WriteByte(preByte);
                                 }
-                                WriteByte(0xe1);
+
+                                WriteByte(0xf1);
                                 WriteByte(secondCode.Value);
-                                WriteByte(leftToken, preByte1.Offset);
+                                WriteByte(rightToken, preByte1.Offset);
+                                WriteByte(rightToken, preByte2.Offset);
                                 if (offset != null) {
                                     WriteByte(rightToken, offset);
                                 }
+
                                 return;
                             }
+                        }
+                    }
+                    if (preByte1.Purpose.HasFlag(PreBytePurpose.First)) {
+                        var valueToken = LastToken;
+                        var preByte2 = ParsePreByte(PreBytePurpose.Second);
+                        if (preByte2 != null) {
+                            // from internal RAM
                             var preByte = preByte1.Code | preByte2.Code;
                             if (preByte != 0) {
                                 WriteByte(preByte);
                             }
-                            WriteByte(0xf1);
-                            WriteByte(secondCode.Value);
-                            WriteByte(rightToken, preByte1.Offset);
-                            WriteByte(rightToken, preByte2.Offset);
-                            if (offset != null) {
-                                WriteByte(rightToken, offset);
-                            }
+                            WriteByte(0xca);
+                            WriteByte(leftToken, preByte1.Offset);
+                            WriteByte(valueToken, preByte2.Offset);
                             return;
                         }
                     }
-                }
-                if (preByte1.Purpose.HasFlag(PreBytePurpose.First) && LastToken.IsReservedWord('(')) {
-                    NextToken();
-                    // from internal RAM
-                    var valueToken = LastToken;
-                    var preByte2 = ParsePreByte(PreBytePurpose.Second);
                     {
-                        AcceptReservedWord(')');
-                        var preByte = preByte1.Code | preByte2.Code;
-                        if (preByte != 0) {
-                            WriteByte(preByte);
+                        // immediate
+                        var valueToken = LastToken;
+                        var value = Expression();
+                        if (value != null) {
+                            if (preByte1.Code != 0) {
+                                WriteByte(preByte1.Code);
+                            }
+
+                            WriteByte(0xdc);
+                            WriteByte(leftToken, preByte1.Offset);
+                            WritePointer(valueToken, value);
+                            return;
                         }
-                        WriteByte(0xca);
-                        WriteByte(leftToken, preByte1.Offset);
-                        WriteByte(valueToken, preByte2.Offset);
-                        return;
-                    }
-                }
-                {
-                    // immediate
-                    var valueToken = LastToken;
-                    var value = Expression();
-                    if (value != null) {
-                        if (preByte1.Code != 0) {
-                            WriteByte(preByte1.Code);
-                        }
-                        WriteByte(0xdc);
-                        WriteByte(leftToken, preByte1.Offset);
-                        WritePointer(valueToken, value);
-                        return;
                     }
                 }
             }
@@ -839,105 +889,104 @@ namespace Inu.Assembler.Sc62015
                             nextPurpose = PreBytePurpose.First | PreBytePurpose.Second;
                         }
 
-                        if (LastToken.IsReservedWord('(')) {
-                            NextToken();
-                            // from internal RAM
+                        {
                             var preByte2 = ParsePreByte(nextPurpose);
-                            AcceptReservedWord(')');
-                            var preByte = preByte1 != null ? preByte1.Code | preByte2.Code : preByte2.Code;
-                            if (preByte != 0) {
-                                WriteByte(preByte);
-                            }
-
-                            if (secondCode == null) {
-                                if (offset != null) {
-                                    WriteByte(0xdb);
-                                    WritePointer(leftToken, offset);
-                                    WriteByte(rightToken, preByte2.Offset);
-                                    return;
+                            if (preByte2 != null) {
+                                // from internal RAM
+                                var preByte = preByte1 != null ? preByte1.Code | preByte2.Code : preByte2.Code;
+                                if (preByte != 0) {
+                                    WriteByte(preByte);
                                 }
-                            }
-                            else {
-                                if (preByte1 == null) {
+
+                                if (secondCode == null) {
                                     if (offset != null) {
-                                        WriteByte(0x5e);
-                                        WriteByte(secondCode.Value);
-                                        WriteByte(leftToken, preByte2.Offset);
-                                        WriteByte(rightToken, offset);
-                                    }
-                                    else {
-                                        WriteByte(0xeb);
-                                        WriteByte(secondCode.Value);
-                                        WriteByte(leftToken, preByte2.Offset);
+                                        WriteByte(0xdb);
+                                        WritePointer(leftToken, offset);
+                                        WriteByte(rightToken, preByte2.Offset);
+                                        return;
                                     }
                                 }
                                 else {
-                                    WriteByte(0xfb);
-                                    WriteByte(secondCode.Value);
-                                    WriteByte(leftToken, preByte1.Offset);
-                                    WriteByte(leftToken, preByte2.Offset);
-                                    if (offset != null) {
-                                        WriteByte(rightToken, offset);
+                                    if (preByte1 == null) {
+                                        if (offset != null) {
+                                            WriteByte(0x5e);
+                                            WriteByte(secondCode.Value);
+                                            WriteByte(leftToken, preByte2.Offset);
+                                            WriteByte(rightToken, offset);
+                                        }
+                                        else {
+                                            WriteByte(0xeb);
+                                            WriteByte(secondCode.Value);
+                                            WriteByte(leftToken, preByte2.Offset);
+                                        }
+                                    }
+                                    else {
+                                        WriteByte(0xfb);
+                                        WriteByte(secondCode.Value);
+                                        WriteByte(leftToken, preByte1.Offset);
+                                        WriteByte(leftToken, preByte2.Offset);
+                                        if (offset != null) {
+                                            WriteByte(rightToken, offset);
+                                        }
                                     }
                                 }
+                                return;
                             }
-
-                            return;
                         }
                     }
                 }
             }
             {
-                AcceptReservedWord('(');
-                // to Internal RAM
                 var preByte1 = ParsePreByte(PreBytePurpose.First | PreBytePurpose.Second);
-                AcceptReservedWord(')');
-                AcceptReservedWord(',');
-                {
-                    var rightToken = LastToken;
-                    var nextPurpose = preByte1.Purpose.HasFlag(PreBytePurpose.Second) ? 0 : PreBytePurpose.Second;
-                    if (ParseExternalRam(nextPurpose, out var secondCode, out var preByte2, out var offset)) {
-                        if (secondCode == null) {
-                            if (offset != null) {
-                                if (preByte1.Code != 0) {
-                                    WriteByte(preByte1.Code);
-                                }
-                                WriteByte(0xd3);
-                                WriteByte(leftToken, preByte1.Offset);
-                                WritePointer(rightToken, offset);
-                                return;
-                            }
-                        }
-                        else {
-                            if (preByte2 == null) {
-                                if (preByte1.Code != 0) {
-                                    WriteByte(preByte1.Code);
-                                }
+                if (preByte1 != null) {
+                    // to Internal RAM
+                    AcceptReservedWord(',');
+                    {
+                        var rightToken = LastToken;
+                        var nextPurpose = preByte1.Purpose.HasFlag(PreBytePurpose.Second) ? 0 : PreBytePurpose.Second;
+                        if (ParseExternalRam(nextPurpose, out var secondCode, out var preByte2, out var offset)) {
+                            if (secondCode == null) {
                                 if (offset != null) {
-                                    WriteByte(0x56);
-                                    WriteByte(secondCode.Value);
+                                    if (preByte1.Code != 0) {
+                                        WriteByte(preByte1.Code);
+                                    }
+                                    WriteByte(0xd3);
                                     WriteByte(leftToken, preByte1.Offset);
+                                    WritePointer(rightToken, offset);
+                                    return;
+                                }
+                            }
+                            else {
+                                if (preByte2 == null) {
+                                    if (preByte1.Code != 0) {
+                                        WriteByte(preByte1.Code);
+                                    }
+                                    if (offset != null) {
+                                        WriteByte(0x56);
+                                        WriteByte(secondCode.Value);
+                                        WriteByte(leftToken, preByte1.Offset);
+                                        WriteByte(rightToken, offset);
+                                    }
+                                    else {
+                                        WriteByte(0xe3);
+                                        WriteByte(secondCode.Value);
+                                        WriteByte(leftToken, preByte1.Offset);
+                                    }
+                                    return;
+                                }
+                                var preByte = preByte1.Code | preByte2.Code;
+                                if (preByte != 0) {
+                                    WriteByte(preByte);
+                                }
+                                WriteByte(0xf3);
+                                WriteByte(secondCode.Value);
+                                WriteByte(rightToken, preByte1.Offset);
+                                WriteByte(rightToken, preByte2.Offset);
+                                if (offset != null) {
                                     WriteByte(rightToken, offset);
                                 }
-                                else {
-                                    WriteByte(0xe3);
-                                    WriteByte(secondCode.Value);
-                                    WriteByte(leftToken, preByte1.Offset);
-                                }
                                 return;
                             }
-                            var preByte = preByte1.Code | preByte2.Code;
-                            if (preByte != 0) {
-                                WriteByte(preByte);
-                            }
-                            WriteByte(0xf3);
-                            WriteByte(secondCode.Value);
-                            WriteByte(rightToken, preByte1.Offset);
-                            WriteByte(rightToken, preByte2.Offset);
-                            if (offset != null) {
-                                WriteByte(rightToken, offset);
-                            }
-                            return;
                         }
                     }
                 }
@@ -947,27 +996,24 @@ namespace Inu.Assembler.Sc62015
 
         private void InterInternal(int code)
         {
-            if (LastToken.IsReservedWord('('))
             {
-                NextToken();
                 var leftToken = LastToken;
                 var preByte1 = ParsePreByte(PreBytePurpose.First);
-                AcceptReservedWord(')');
-                AcceptReservedWord(',');
-                AcceptReservedWord('(');
-                var rightToken = LastToken;
-                var preByte2 = ParsePreByte(PreBytePurpose.Second);
-                AcceptReservedWord(')');
-                var preByte = preByte1.Code | preByte2.Code;
-                if (preByte != 0)
-                {
-                    WriteByte(preByte);
+                if (preByte1 != null) {
+                    AcceptReservedWord(',');
+                    var rightToken = LastToken;
+                    var preByte2 = ParsePreByte(PreBytePurpose.Second);
+                    if (preByte2 != null) {
+                        var preByte = preByte1.Code | preByte2.Code;
+                        if (preByte != 0) {
+                            WriteByte(preByte);
+                        }
+                        WriteByte(code);
+                        WriteByte(leftToken, preByte1.Offset);
+                        WriteByte(rightToken, preByte2.Offset);
+                        return;
+                    }
                 }
-
-                WriteByte(code);
-                WriteByte(leftToken, preByte1.Offset);
-                WriteByte(rightToken, preByte2.Offset);
-                return;
             }
             ShowSyntaxError(LastToken);
         }
@@ -1124,14 +1170,14 @@ namespace Inu.Assembler.Sc62015
             if (LastToken.IsReservedWord(Keyword.A)) {
                 NextToken();
                 AcceptReservedWord(',');
-                if (LastToken.IsReservedWord('(')) {
-                    NextToken();
+                {
                     var rightToken = LastToken;
                     var preByte = ParsePreByte(PreBytePurpose.First | PreBytePurpose.Second);
-                    AcceptReservedWord(')');
-                    WriteByte(code | 0x02);
-                    WriteByte(rightToken, preByte.Offset);
-                    return;
+                    if (preByte != null) {
+                        WriteByte(code | 0x02);
+                        WriteByte(rightToken, preByte.Offset);
+                        return;
+                    }
                 }
                 {
                     var rightRegister = RegisterIndex(LastToken);
@@ -1177,32 +1223,34 @@ namespace Inu.Assembler.Sc62015
                     }
                 }
             }
-            if (LastToken.IsReservedWord('(')) {
-                NextToken();
+            {
                 var leftToken = LastToken;
                 var preByte = ParsePreByte(PreBytePurpose.First);
-                AcceptReservedWord(')');
-                AcceptReservedWord(',');
-                if (LastToken.IsReservedWord(Keyword.A)) {
-                    NextToken();
-                    if (preByte.Code != 0) {
-                        WriteByte(preByte.Code);
-                    }
-                    WriteByte(code | 0x03);
-                    WriteByte(leftToken, preByte.Offset);
-                    return;
-                }
-                {
-                    var rightToken = LastToken;
-                    var value = Expression();
-                    if (value != null) {
+                if (preByte != null) {
+                    AcceptReservedWord(',');
+                    if (LastToken.IsReservedWord(Keyword.A)) {
+                        NextToken();
                         if (preByte.Code != 0) {
                             WriteByte(preByte.Code);
                         }
-                        WriteByte(code | 0x01);
+
+                        WriteByte(code | 0x03);
                         WriteByte(leftToken, preByte.Offset);
-                        WriteByte(rightToken, value);
                         return;
+                    }
+                    {
+                        var rightToken = LastToken;
+                        var value = Expression();
+                        if (value != null) {
+                            if (preByte.Code != 0) {
+                                WriteByte(preByte.Code);
+                            }
+
+                            WriteByte(code | 0x01);
+                            WriteByte(leftToken, preByte.Offset);
+                            WriteByte(rightToken, value);
+                            return;
+                        }
                     }
                 }
             }
@@ -1214,14 +1262,14 @@ namespace Inu.Assembler.Sc62015
             if (LastToken.IsReservedWord(Keyword.A)) {
                 NextToken();
                 AcceptReservedWord(',');
-                if (LastToken.IsReservedWord('(')) {
-                    NextToken();
+                {
                     var rightToken = LastToken;
                     var preByte = ParsePreByte(PreBytePurpose.First | PreBytePurpose.Second);
-                    AcceptReservedWord(')');
-                    WriteByte(code | 0x02);
-                    WriteByte(rightToken, preByte.Offset);
-                    return;
+                    if (preByte != null) {
+                        WriteByte(code | 0x02);
+                        WriteByte(rightToken, preByte.Offset);
+                        return;
+                    }
                 }
                 {
                     var rightToken = LastToken;
@@ -1233,32 +1281,36 @@ namespace Inu.Assembler.Sc62015
                     }
                 }
             }
-            if (LastToken.IsReservedWord('(')) {
-                NextToken();
+
+            {
                 var leftToken = LastToken;
                 var preByte = ParsePreByte(PreBytePurpose.First);
-                AcceptReservedWord(')');
-                AcceptReservedWord(',');
-                if (LastToken.IsReservedWord(Keyword.A)) {
-                    NextToken();
-                    if (preByte.Code != 0) {
-                        WriteByte(preByte.Code);
-                    }
-                    WriteByte(code | 0x03);
-                    WriteByte(leftToken, preByte.Offset);
-                    return;
-                }
-                {
-                    var rightToken = LastToken;
-                    var value = Expression();
-                    if (value != null) {
+                if (preByte != null) {
+                    AcceptReservedWord(',');
+                    if (LastToken.IsReservedWord(Keyword.A)) {
+                        NextToken();
                         if (preByte.Code != 0) {
                             WriteByte(preByte.Code);
                         }
-                        WriteByte(code | 0x01);
+
+                        WriteByte(code | 0x03);
                         WriteByte(leftToken, preByte.Offset);
-                        WriteByte(rightToken, value);
                         return;
+                    }
+
+                    {
+                        var rightToken = LastToken;
+                        var value = Expression();
+                        if (value != null) {
+                            if (preByte.Code != 0) {
+                                WriteByte(preByte.Code);
+                            }
+
+                            WriteByte(code | 0x01);
+                            WriteByte(leftToken, preByte.Offset);
+                            WriteByte(rightToken, value);
+                            return;
+                        }
                     }
                 }
             }
@@ -1267,22 +1319,20 @@ namespace Inu.Assembler.Sc62015
 
         private void ADCLorSBCL(int code)
         {
-            AcceptReservedWord('(');
             var leftToken = LastToken;
             var preByte1 = ParsePreByte(PreBytePurpose.First | PreBytePurpose.Second);
-            AcceptReservedWord(')');
-            AcceptReservedWord(',');
-            if (LastToken.IsReservedWord(Keyword.A)) {
-                NextToken();
-                if (preByte1.Code != 0) {
-                    WriteByte(preByte1.Code);
+            if (preByte1 != null) {
+                AcceptReservedWord(',');
+                if (LastToken.IsReservedWord(Keyword.A)) {
+                    NextToken();
+                    if (preByte1.Code != 0) {
+                        WriteByte(preByte1.Code);
+                    }
+
+                    WriteByte(0x01 | code);
+                    WriteByte(leftToken, preByte1.Offset);
+                    return;
                 }
-                WriteByte(0x01 | code);
-                WriteByte(leftToken, preByte1.Offset);
-                return;
-            }
-            if (LastToken.IsReservedWord('(')) {
-                NextToken();
                 var rightToken = LastToken;
                 PreBytePurpose nextPurpose = preByte1.Purpose switch
                 {
@@ -1291,15 +1341,17 @@ namespace Inu.Assembler.Sc62015
                     _ => PreBytePurpose.First | PreBytePurpose.Second
                 };
                 var preByte2 = ParsePreByte(nextPurpose);
-                AcceptReservedWord(')');
-                var preByte = preByte1.Code | preByte2.Code;
-                if (preByte != 0) {
-                    WriteByte(preByte);
+                if (preByte2 != null) {
+                    var preByte = preByte1.Code | preByte2.Code;
+                    if (preByte != 0) {
+                        WriteByte(preByte);
+                    }
+
+                    WriteByte(0x00 | code);
+                    WriteByte(leftToken, preByte1.Offset);
+                    WriteByte(rightToken, preByte2.Offset);
+                    return;
                 }
-                WriteByte(0x00 | code);
-                WriteByte(leftToken, preByte1.Offset);
-                WriteByte(rightToken, preByte2.Offset);
-                return;
             }
             ShowSyntaxError(LastToken);
         }
@@ -1315,48 +1367,48 @@ namespace Inu.Assembler.Sc62015
                     return;
                 }
             }
-            if (LastToken.IsReservedWord('(')) {
-                NextToken();
+            {
                 var token = LastToken;
                 var preByte = ParsePreByte(PreBytePurpose.First | PreBytePurpose.Second);
-                AcceptReservedWord(')');
-                if (preByte.Code != 0) {
-                    WriteByte(preByte.Code);
+                if (preByte != null) {
+                    if (preByte.Code != 0) {
+                        WriteByte(preByte.Code);
+                    }
+                    WriteByte(0x01 | code);
+                    WriteByte(token, preByte.Offset);
+                    return;
                 }
-                WriteByte(0x01 | code);
-                WriteByte(token, preByte.Offset);
-                return;
             }
             ShowSyntaxError(LastToken);
         }
 
         private void PMDF()
         {
-            AcceptReservedWord('(');
             var leftToken = LastToken;
             var preByte = ParsePreByte(PreBytePurpose.First | PreBytePurpose.Second);
-            AcceptReservedWord(')');
-            AcceptReservedWord(',');
-            if (LastToken.IsReservedWord(Keyword.A)) {
-                NextToken();
-                if (preByte.Code != 0) {
-                    WriteByte(preByte.Code);
-                }
-                WriteByte(0x57);
-                WriteByte(leftToken, preByte.Offset);
-                return;
-            }
-            {
-                var rightToken = LastToken;
-                var value = Expression();
-                if (value != null) {
+            if (preByte != null) {
+                AcceptReservedWord(',');
+                if (LastToken.IsReservedWord(Keyword.A)) {
+                    NextToken();
                     if (preByte.Code != 0) {
                         WriteByte(preByte.Code);
                     }
-                    WriteByte(0x47);
+                    WriteByte(0x57);
                     WriteByte(leftToken, preByte.Offset);
-                    WriteByte(rightToken, value);
                     return;
+                }
+                {
+                    var rightToken = LastToken;
+                    var value = Expression();
+                    if (value != null) {
+                        if (preByte.Code != 0) {
+                            WriteByte(preByte.Code);
+                        }
+                        WriteByte(0x47);
+                        WriteByte(leftToken, preByte.Offset);
+                        WriteByte(rightToken, value);
+                        return;
+                    }
                 }
             }
             ShowSyntaxError(LastToken);
@@ -1392,47 +1444,47 @@ namespace Inu.Assembler.Sc62015
                     }
                 }
             }
-            if (LastToken.IsReservedWord('(')) {
-                NextToken();
+            {
                 var leftToken = LastToken;
                 var preByte1 = ParsePreByte(PreBytePurpose.First | PreBytePurpose.Second);
-                AcceptReservedWord(')');
-                AcceptReservedWord(',');
-                if (LastToken.IsReservedWord(Keyword.A)) {
-                    NextToken();
-                    if (preByte1.Code != 0) {
-                        WriteByte(preByte1.Code);
-                    }
-                    WriteByte(0x63);
-                    WriteByte(leftToken, preByte1.Offset);
-                    return;
-                }
-                if (LastToken.IsReservedWord('(')) {
-                    NextToken();
-                    var rightToken = LastToken;
-                    var nextPurpose = preByte1.Purpose.HasFlag(PreBytePurpose.Second) ? 0 : PreBytePurpose.Second;
-                    var preByte2 = ParsePreByte(nextPurpose);
-                    AcceptReservedWord(')');
-                    var preByte = preByte1.Code | preByte2.Code;
-                    if (preByte != 0) {
-                        WriteByte(preByte);
-                    }
-                    WriteByte(0xb7);
-                    WriteByte(leftToken, preByte1.Offset);
-                    WriteByte(rightToken, preByte2.Offset);
-                    return;
-                }
-                {
-                    var rightToken = LastToken;
-                    var value = Expression();
-                    if (value != null) {
+                if (preByte1 != null) {
+                    AcceptReservedWord(',');
+                    if (LastToken.IsReservedWord(Keyword.A)) {
+                        NextToken();
                         if (preByte1.Code != 0) {
                             WriteByte(preByte1.Code);
                         }
-                        WriteByte(0x61);
+                        WriteByte(0x63);
                         WriteByte(leftToken, preByte1.Offset);
-                        WriteByte(rightToken, value);
                         return;
+                    }
+                    {
+                        var rightToken = LastToken;
+                        var nextPurpose = preByte1.Purpose.HasFlag(PreBytePurpose.Second) ? 0 : PreBytePurpose.Second;
+                        var preByte2 = ParsePreByte(nextPurpose);
+                        if (preByte2 != null) {
+                            var preByte = preByte1.Code | preByte2.Code;
+                            if (preByte != 0) {
+                                WriteByte(preByte);
+                            }
+                            WriteByte(0xb7);
+                            WriteByte(leftToken, preByte1.Offset);
+                            WriteByte(rightToken, preByte2.Offset);
+                            return;
+                        }
+                    }
+                    {
+                        var rightToken = LastToken;
+                        var value = Expression();
+                        if (value != null) {
+                            if (preByte1.Code != 0) {
+                                WriteByte(preByte1.Code);
+                            }
+                            WriteByte(0x61);
+                            WriteByte(leftToken, preByte1.Offset);
+                            WriteByte(rightToken, value);
+                            return;
+                        }
                     }
                 }
             }
@@ -1441,40 +1493,40 @@ namespace Inu.Assembler.Sc62015
 
         private void CMP(int code, int size)
         {
-            AcceptReservedWord('(');
             var leftToken = LastToken;
             var preByte1 = ParsePreByte(PreBytePurpose.First | PreBytePurpose.Second);
-            AcceptReservedWord(')');
-            AcceptReservedWord(',');
-            if (RegisterIndex(LastToken) is { } rightRegister) {
-                var rightToken = LastToken;
-                NextToken();
-                if (RegisterSizes[rightRegister] == size) {
-                    if (preByte1.Code != 0) {
-                        WriteByte(preByte1.Code);
+            if (preByte1 != null) {
+                AcceptReservedWord(',');
+                if (RegisterIndex(LastToken) is { } rightRegister) {
+                    var rightToken = LastToken;
+                    NextToken();
+                    if (RegisterSizes[rightRegister] == size) {
+                        if (preByte1.Code != 0) {
+                            WriteByte(preByte1.Code);
+                        }
+                        WriteByte(0xd0 | code);
+                        WriteByte(rightRegister);
+                        WriteByte(leftToken, preByte1.Offset);
+                        return;
                     }
-                    WriteByte(0xd0 | code);
-                    WriteByte(rightRegister);
-                    WriteByte(leftToken, preByte1.Offset);
+                    ShowInvalidRegister(rightToken);
                     return;
                 }
-                ShowInvalidRegister(rightToken);
-                return;
-            }
-            if (LastToken.IsReservedWord('(')) {
-                NextToken();
-                var rightToken = LastToken;
-                var nextPurpose = preByte1.Purpose.HasFlag(PreBytePurpose.Second) ? 0 : PreBytePurpose.Second;
-                var preByte2 = ParsePreByte(nextPurpose);
-                AcceptReservedWord(')');
-                var preByte = preByte1.Code | preByte2.Code;
-                if (preByte != 0) {
-                    WriteByte(preByte);
+                {
+                    var rightToken = LastToken;
+                    var nextPurpose = preByte1.Purpose.HasFlag(PreBytePurpose.Second) ? 0 : PreBytePurpose.Second;
+                    var preByte2 = ParsePreByte(nextPurpose);
+                    if (preByte2 != null) {
+                        var preByte = preByte1.Code | preByte2.Code;
+                        if (preByte != 0) {
+                            WriteByte(preByte);
+                        }
+                        WriteByte(0xc0 | code);
+                        WriteByte(leftToken, preByte1.Offset);
+                        WriteByte(rightToken, preByte2.Offset);
+                        return;
+                    }
                 }
-                WriteByte(0xc0 | code);
-                WriteByte(leftToken, preByte1.Offset);
-                WriteByte(rightToken, preByte2.Offset);
-                return;
             }
             ShowSyntaxError(LastToken);
         }
@@ -1484,25 +1536,24 @@ namespace Inu.Assembler.Sc62015
             if (LastToken.IsReservedWord(Keyword.A)) {
                 NextToken();
                 AcceptReservedWord(',');
-                if (LastToken.IsReservedWord('(')) {
-                    NextToken();
-                    var rightToken = LastToken;
-                    var preByte = ParsePreByte(PreBytePurpose.First | PreBytePurpose.Second);
-                    AcceptReservedWord(')');
-                    if (preByte.Code != 0) {
-                        WriteByte(preByte.Code);
-                    }
-                    WriteByte(code | 0x07);
-                    WriteByte(rightToken, preByte.Offset);
-                    return;
-                }
                 {
                     var rightToken = LastToken;
-                    var value = Expression();
-                    if (value != null) {
-                        WriteByte(code | 0x00);
-                        WriteByte(rightToken, value);
+                    var preByte = ParsePreByte(PreBytePurpose.First | PreBytePurpose.Second);
+                    if (preByte != null) {
+                        if (preByte.Code != 0) {
+                            WriteByte(preByte.Code);
+                        }
+                        WriteByte(code | 0x07);
+                        WriteByte(rightToken, preByte.Offset);
                         return;
+                    }
+                    {
+                        var value = Expression();
+                        if (value != null) {
+                            WriteByte(code | 0x00);
+                            WriteByte(rightToken, value);
+                            return;
+                        }
                     }
                 }
             }
@@ -1523,47 +1574,47 @@ namespace Inu.Assembler.Sc62015
                     }
                 }
             }
-            if (LastToken.IsReservedWord('(')) {
-                NextToken();
+            {
                 var leftToken = LastToken;
                 var preByte1 = ParsePreByte(PreBytePurpose.First | PreBytePurpose.Second);
-                AcceptReservedWord(')');
-                AcceptReservedWord(',');
-                if (LastToken.IsReservedWord(Keyword.A)) {
-                    NextToken();
-                    if (preByte1.Code != 0) {
-                        WriteByte(preByte1.Code);
-                    }
-                    WriteByte(code | 0x03);
-                    WriteByte(leftToken, preByte1.Offset);
-                    return;
-                }
-                if (LastToken.IsReservedWord('(')) {
-                    NextToken();
-                    var rightToken = LastToken;
-                    var nextPurpose = preByte1.Purpose.HasFlag(PreBytePurpose.Second) ? 0 : PreBytePurpose.Second;
-                    var preByte2 = ParsePreByte(nextPurpose);
-                    AcceptReservedWord(')');
-                    var preByte = preByte1.Code | preByte2.Code;
-                    if (preByte != 0) {
-                        WriteByte(preByte);
-                    }
-                    WriteByte(code | 0x06);
-                    WriteByte(leftToken, preByte1.Offset);
-                    WriteByte(rightToken, preByte2.Offset);
-                    return;
-                }
-                {
-                    var rightToken = LastToken;
-                    var value = Expression();
-                    if (value != null) {
+                if (preByte1 != null) {
+                    AcceptReservedWord(',');
+                    if (LastToken.IsReservedWord(Keyword.A)) {
+                        NextToken();
                         if (preByte1.Code != 0) {
                             WriteByte(preByte1.Code);
                         }
-                        WriteByte(code | 0x01);
+                        WriteByte(code | 0x03);
                         WriteByte(leftToken, preByte1.Offset);
-                        WriteByte(rightToken, value);
                         return;
+                    }
+                    {
+                        var rightToken = LastToken;
+                        var nextPurpose = preByte1.Purpose.HasFlag(PreBytePurpose.Second) ? 0 : PreBytePurpose.Second;
+                        var preByte2 = ParsePreByte(nextPurpose);
+                        if (preByte2 != null) {
+                            var preByte = preByte1.Code | preByte2.Code;
+                            if (preByte != 0) {
+                                WriteByte(preByte);
+                            }
+                            WriteByte(code | 0x06);
+                            WriteByte(leftToken, preByte1.Offset);
+                            WriteByte(rightToken, preByte2.Offset);
+                            return;
+                        }
+                    }
+                    {
+                        var rightToken = LastToken;
+                        var value = Expression();
+                        if (value != null) {
+                            if (preByte1.Code != 0) {
+                                WriteByte(preByte1.Code);
+                            }
+                            WriteByte(code | 0x01);
+                            WriteByte(leftToken, preByte1.Offset);
+                            WriteByte(rightToken, value);
+                            return;
+                        }
                     }
                 }
             }
@@ -1602,32 +1653,32 @@ namespace Inu.Assembler.Sc62015
                     }
                 }
             }
-            if (LastToken.IsReservedWord('(')) {
-                NextToken();
+            {
                 var leftToken = LastToken;
                 var preByte1 = ParsePreByte(PreBytePurpose.First | PreBytePurpose.Second);
-                AcceptReservedWord(')');
-                AcceptReservedWord(',');
-                if (LastToken.IsReservedWord(Keyword.A)) {
-                    NextToken();
-                    if (preByte1.Code != 0) {
-                        WriteByte(preByte1.Code);
-                    }
-                    WriteByte(0x67);
-                    WriteByte(leftToken, preByte1.Offset);
-                    return;
-                }
-                {
-                    var rightToken = LastToken;
-                    var value = Expression();
-                    if (value != null) {
+                if (preByte1 != null) {
+                    AcceptReservedWord(',');
+                    if (LastToken.IsReservedWord(Keyword.A)) {
+                        NextToken();
                         if (preByte1.Code != 0) {
                             WriteByte(preByte1.Code);
                         }
-                        WriteByte(0x65);
+                        WriteByte(0x67);
                         WriteByte(leftToken, preByte1.Offset);
-                        WriteByte(rightToken, value);
                         return;
+                    }
+                    {
+                        var rightToken = LastToken;
+                        var value = Expression();
+                        if (value != null) {
+                            if (preByte1.Code != 0) {
+                                WriteByte(preByte1.Code);
+                            }
+                            WriteByte(0x65);
+                            WriteByte(leftToken, preByte1.Offset);
+                            WriteByte(rightToken, value);
+                            return;
+                        }
                     }
                 }
             }
@@ -1640,32 +1691,34 @@ namespace Inu.Assembler.Sc62015
                 WriteByte(code | 0x00);
                 return;
             }
-            if (LastToken.IsReservedWord('(')) {
-                NextToken();
+            {
                 var token = LastToken;
                 var preByte = ParsePreByte(PreBytePurpose.First | PreBytePurpose.Second);
-                AcceptReservedWord(')');
-                if (preByte.Code != 0) {
-                    WriteByte(preByte.Code);
+                if (preByte != null) {
+                    if (preByte.Code != 0) {
+                        WriteByte(preByte.Code);
+                    }
+                    WriteByte(code | 0x01);
+                    WriteByte(token, preByte.Offset);
+                    return;
                 }
-                WriteByte(code | 0x01);
-                WriteByte(token, preByte.Offset);
-                return;
             }
             ShowSyntaxError(LastToken);
         }
 
         private void DSL(int code)
         {
-            AcceptReservedWord('(');
             var token = LastToken;
             var preByte = ParsePreByte(PreBytePurpose.First | PreBytePurpose.Second);
-            AcceptReservedWord(')');
-            if (preByte.Code != 0) {
-                WriteByte(preByte.Code);
+            if (preByte != null) {
+                if (preByte.Code != 0) {
+                    WriteByte(preByte.Code);
+                }
+                WriteByte(code);
+                WriteByte(token, preByte.Offset);
+                return;
             }
-            WriteByte(code);
-            WriteByte(token, preByte.Offset);
+            ShowSyntaxError(LastToken);
         }
 
         private void JR(int shortCode, int longCode)
@@ -1688,17 +1741,17 @@ namespace Inu.Assembler.Sc62015
 
         private void JP()
         {
-            if (LastToken.IsReservedWord('(')) {
-                NextToken();
+            {
                 var token = LastToken;
                 var preByte = ParsePreByte(PreBytePurpose.First | PreBytePurpose.Second);
-                AcceptReservedWord(')');
-                if (preByte.Code != 0) {
-                    WriteByte(preByte.Code);
+                if (preByte != null) {
+                    if (preByte.Code != 0) {
+                        WriteByte(preByte.Code);
+                    }
+                    WriteByte(0x10);
+                    WriteByte(token, preByte.Offset);
+                    return;
                 }
-                WriteByte(0x10);
-                WriteByte(token, preByte.Offset);
-                return;
             }
             {
                 var token = LastToken;
@@ -1898,10 +1951,8 @@ namespace Inu.Assembler.Sc62015
         }
         private void EndIfStatement()
         {
-            if (LastBlock() is IfBlock block)
-            {
-                switch (block.ElseId)
-                {
+            if (LastBlock() is IfBlock block) {
+                switch (block.ElseId) {
                     case <= 0:
                         DefineSymbol(block.EndId, CurrentAddress);
                         break;
