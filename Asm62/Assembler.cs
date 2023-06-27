@@ -1717,6 +1717,222 @@ namespace Inu.Assembler.Sc62015
         }
 
 
+        private static int? JumpCode(Token token)
+        {
+            if (token.IsReservedWord(Keyword.Z)) return 0x14;
+            if (token.IsReservedWord(Keyword.NZ)) return 0x15;
+            if (token.IsReservedWord(Keyword.C)) return 0x14;
+            if (token.IsReservedWord(Keyword.NC)) return 0x15;
+            return null;
+        }
+
+        private static int? RelativeJumpCode(Token token)
+        {
+            if (token.IsReservedWord(Keyword.Z)) return 0x18;
+            if (token.IsReservedWord(Keyword.NZ)) return 0x1a;
+            if (token.IsReservedWord(Keyword.C)) return 0x1c;
+            if (token.IsReservedWord(Keyword.NC)) return 0x1e;
+            return null;
+        }
+
+        private void ConditionalJump(Address address)
+        {
+            var condition = LastToken;
+            {
+                var code = RelativeJumpCode(LastToken);
+                if (code != null) {
+                    if (!address.IsUndefined()) {
+                        var offset = RelativeOffset(address);
+                        if (IsRelativeOffsetInRange(offset)) {
+                            NextToken();
+                            // JR cc, else
+                            if (offset < 0) {
+                                WriteByte(code.Value | 0x01);
+                                WriteByte(-offset);
+                            }
+                            else {
+                                WriteByte(code.Value);
+                                WriteByte(offset);
+                            }
+                            return;
+                        }
+                    }
+                }
+            }
+            {
+                var code = JumpCode(condition);
+                if (code == null)
+                    return;
+                NextToken();
+                // JP cc,else
+                WriteByte(code.Value);
+                WriteWord(LastToken, address);
+            }
+        }
+
+        private void NegatedConditionalJump(Address address)
+        {
+            var condition = LastToken;
+            {
+                int? code;
+                if (!address.IsUndefined() && (code = RelativeJumpCode(condition)) != null) {
+                    code ^= 0x02;  // negate condition
+                    var offset = RelativeOffset(address);
+                    if (IsRelativeOffsetInRange(offset)) {
+                        NextToken();
+                        // JR !cc, else
+                        if (offset < 0) {
+                            WriteByte(code.Value | 0x01);
+                            WriteByte(-offset);
+                        }
+                        else {
+                            WriteByte(code.Value);
+                            WriteByte(offset);
+                        }
+                        return;
+                    }
+                }
+            }
+            {
+                var code = JumpCode(condition);
+                if (code == null)
+                    return;
+                NextToken();
+                code ^= 0x01; // negate condition
+                // JP !cc,else
+                WriteByte(code.Value);
+                WriteWord(LastToken, address);
+            }
+        }
+
+        private void UnconditionalJump(Address address)
+        {
+            if (!address.IsUndefined()) {
+                var offset = RelativeOffset(address);
+                if (IsRelativeOffsetInRange(offset)) {
+                    // JR endif
+                    if (offset < 0) {
+                        WriteByte(0x13);
+                        WriteByte(-offset);
+                    }
+                    else {
+                        WriteByte(0x12);
+                        WriteByte(offset);
+                    }
+                    return;
+                }
+            }
+            // JP endif
+            WriteByte(0x02);
+            WriteWord(LastToken, address);
+        }
+
+
+        private void StartIf(IfBlock block)
+        {
+            var address = SymbolAddress(block.ElseId);
+            NegatedConditionalJump(address);
+        }
+
+        private void IfStatement()
+        {
+            var block = NewIfBlock();
+            StartIf(block);
+        }
+
+        private void ElseStatement()
+        {
+            if (LastBlock() is IfBlock block) {
+                if (block.ElseId <= 0) {
+                    ShowError(LastToken.Position, "Multiple ELSE statement.");
+                }
+
+                var address = SymbolAddress(block.EndId);
+                UnconditionalJump(address);
+                DefineSymbol(block.ConsumeElse(), CurrentAddress);
+            }
+            else {
+                ShowNoStatementError(LastToken, "IF");
+            }
+            //NextToken();
+        }
+
+        private void ElseIfStatement()
+        {
+            ElseStatement();
+            if (LastBlock() is not IfBlock block) { return; }
+            Debug.Assert(block.ElseId == Block.InvalidId);
+            block.ElseId = AutoLabel();
+            StartIf(block);
+        }
+        private void EndIfStatement()
+        {
+            if (LastBlock() is IfBlock block)
+            {
+                switch (block.ElseId)
+                {
+                    case <= 0:
+                        DefineSymbol(block.EndId, CurrentAddress);
+                        break;
+                    default:
+                        DefineSymbol(block.ConsumeElse(), CurrentAddress);
+                        break;
+                }
+                EndBlock();
+            }
+            else {
+                ShowNoStatementError(LastToken, "IF");
+            }
+            //NextToken();
+        }
+
+        private void DoStatement()
+        {
+            var block = NewWhileBlock();
+            DefineSymbol(block.BeginId, CurrentAddress);
+            //NextToken();
+        }
+
+        private void WhileStatement()
+        {
+            //NextToken();
+            if (LastBlock() is not WhileBlock block) {
+                ShowNoStatementError(LastToken, "WHILE");
+                NextToken();
+                return;
+            }
+
+            var repeatAddress = SymbolAddress(block.RepeatId);
+            var code = RelativeJumpCode(LastToken);
+            var next = code != null ? 0 : 1;
+            if (repeatAddress.Type == CurrentSegment.Type && (RelativeOffset(repeatAddress)) <= next) {
+                var address = SymbolAddress(block.BeginId);
+                ConditionalJump(address);
+                block.EraseEndId();
+            }
+            else {
+                var address = SymbolAddress(block.EndId);
+                NegatedConditionalJump(address);
+            }
+        }
+        private void WEndStatement()
+        {
+            if (LastBlock() is not WhileBlock block) {
+                ShowNoStatementError(LastToken, "WHILE");
+            }
+            else {
+                if (block.EndId > 0) {
+                    DefineSymbol(block.RepeatId, CurrentAddress);
+                    var address = SymbolAddress(block.BeginId);
+                    UnconditionalJump(address);
+                    DefineSymbol(block.EndId, CurrentAddress);
+                }
+                EndBlock();
+            }
+            //NextToken();
+        }
+
+
         private static readonly IDictionary<int, Action<Assembler>> Actions = new Dictionary<int, Action<Assembler>>
         {
             { Keyword.MV, a=>a.MV() },
@@ -1781,6 +1997,13 @@ namespace Inu.Assembler.Sc62015
             { Keyword.IR, a =>a.WriteByte(0xfe) },
             { Keyword.RETI, a =>a.WriteByte(0x01) },
             { Keyword.RESET, a =>a.WriteByte(0xff) },
+            { Inu.Assembler.Keyword.If, a=>{a.IfStatement(); }},
+            { Inu.Assembler.Keyword.Else, a=>{a.ElseStatement(); }},
+            { Inu.Assembler.Keyword.EndIf,a=>{a.EndIfStatement(); }},
+            { Inu.Assembler.Keyword.ElseIf, a=>{a.ElseIfStatement(); }},
+            { Inu.Assembler.Keyword.Do, a=>{a.DoStatement(); }},
+            { Inu.Assembler.Keyword.While, a=>{a.WhileStatement(); }},
+            { Inu.Assembler.Keyword.WEnd, a=>{a.WEndStatement(); }},
         };
 
 
@@ -1793,6 +2016,11 @@ namespace Inu.Assembler.Sc62015
             NextToken();
             func(this);
             return true;
+        }
+
+        protected override bool Directive(ReservedWord reservedWord)
+        {
+            return base.Directive(reservedWord);
         }
     }
 }

@@ -632,7 +632,7 @@ namespace Inu.Assembler
 
         protected IfBlock NewIfBlock()
         {
-            IfBlock block = new IfBlock(AutoLabel(), AutoLabel());
+            var block = new IfBlock(AutoLabel(), AutoLabel());
             blocks.Push(block);
             return block;
         }
