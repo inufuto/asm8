@@ -128,7 +128,7 @@ namespace Inu.Assembler
                 ShowAddressUsageError(token);
             }
 
-            byte[] bytes = ToBytes(value.Value);
+            var bytes = ToBytes(value.Value);
             foreach (var b in bytes) {
                 WriteByte(b);
             }
@@ -567,7 +567,7 @@ namespace Inu.Assembler
 
         protected static bool IsRelativeOffsetInByte(int offset)
         {
-            return offset >= -128 && offset <= 128;
+            return offset is >= -128 and <= 128;
         }
 
         protected int RelativeOffset(Address address)
