@@ -37,6 +37,7 @@ namespace Inu.Assembler.Sc62015
         }
 
         public readonly int MemoryPage;
+        public override bool ZeroPageAvailable => true;
 
         public Assembler(int memoryPage) : base(new Tokenizer())
         {
