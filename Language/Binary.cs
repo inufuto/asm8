@@ -39,26 +39,26 @@ namespace Inu.Language
 
         public static void WriteString(this Stream stream, string s)
         {
-            byte[] bytes = Encoding.ASCII.GetBytes(s);
+            var bytes = Encoding.ASCII.GetBytes(s);
             stream.WriteWord(bytes.Length);
-            foreach (byte b in bytes) {
+            foreach (var b in bytes) {
                 stream.WriteByte(b);
             }
         }
 
         public static int ReadWord(this Stream stream)
         {
-            int l = stream.ReadByte();
-            int h = stream.ReadByte();
+            var l = stream.ReadByte();
+            var h = stream.ReadByte();
             return l | (h << 8);
         }
 
         public static string ReadString(this Stream stream)
         {
-            int n = stream.ReadWord();
-            StringBuilder s = new StringBuilder();
-            for (int i = 0; i < n; ++i) {
-                char c = (char)(stream.ReadByte());
+            var n = stream.ReadWord();
+            var s = new StringBuilder();
+            for (var i = 0; i < n; ++i) {
+                var c = (char)(stream.ReadByte());
                 s.Append(c);
             }
             return s.ToString();

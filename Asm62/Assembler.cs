@@ -1,6 +1,5 @@
 ﻿using Inu.Language;
 using System.Diagnostics;
-using System.Net;
 
 namespace Inu.Assembler.Sc62015
 {
@@ -55,13 +54,10 @@ namespace Inu.Assembler.Sc62015
             }
         }
 
-        public readonly int MemoryPage;
         public override bool ZeroPageAvailable => true;
+        public override AddressPart PointerAddressPart => AddressPart.TByte;
 
-        public Assembler(int memoryPage) : base(new Tokenizer())
-        {
-            MemoryPage = memoryPage;
-        }
+        public Assembler() : base(new Tokenizer(),20) { }
 
         protected override bool IsRelativeOffsetInRange(int offset)
         {
@@ -84,18 +80,6 @@ namespace Inu.Assembler.Sc62015
         {
             ShowError(token.Position, "Invalid addressing.");
         }
-
-        private void WritePointer(Token token, Address value)
-        {
-            WriteWord(token, value);
-            if (value.IsConst()) {
-                WriteByte(value.Value >> 16);
-            }
-            else {
-                WriteByte(MemoryPage);
-            }
-        }
-
 
         private Address? Offset()
         {
@@ -1785,7 +1769,7 @@ namespace Inu.Assembler.Sc62015
             var address = Expression();
             if (address != null) {
                 WriteByte(code);
-                WriteWord(token, address);
+                WriteWord(token, address.PartOf(AddressPart.Word));
                 return;
             }
             ShowSyntaxError(LastToken);

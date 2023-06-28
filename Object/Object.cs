@@ -8,22 +8,22 @@ namespace Inu.Assembler
 {
     public class Object
     {
-        private const int Version = 0x0100;
+        private const int Version = 0x0200;
         public const string Extension = ".obj";
 
         public string? Name { get; private set; }
-        //public readonly Dictionary<int, string> Names = new Dictionary<int, string>();
-        public readonly Segment[] Segments = { new Segment(AddressType.Code), new Segment(AddressType.Data), new Segment(AddressType.ZeroPage) };
-        public readonly Dictionary<int, Symbol> Symbols = new Dictionary<int, Symbol>();
-        public readonly Dictionary<Address, Address> AddressUsages = new Dictionary<Address, Address>();
+        public readonly Segment[] Segments = { new(AddressType.Code), new(AddressType.Data), new(AddressType.ZeroPage) };
+        public readonly Dictionary<int, Symbol> Symbols = new();
+        public readonly Dictionary<Address, Address> AddressUsages = new();
+        public int AddressBitCount { get; private set; }
 
-
-        public Object(string? fileName)
+        public Object(string? fileName, int addressBitCount = 16)
         {
             Name = Path.GetFileName(fileName);
+            AddressBitCount = addressBitCount;
         }
 
-        public Object() : this(null) { }
+        public Object(int addressBitCount = 16) : this(null, addressBitCount) { }
 
 
         public void Save(string fileName)
@@ -36,8 +36,9 @@ namespace Inu.Assembler
         public void Write(Stream stream)
         {
             stream.WriteWord(Version);
+            stream.WriteByte(AddressBitCount);
 
-            foreach (Segment segment in Segments) {
+            foreach (var segment in Segments) {
                 segment.Write(stream);
             }
 
@@ -51,8 +52,7 @@ namespace Inu.Assembler
             var ids = publicIds.Union(externalIds).ToHashSet();
 
             stream.WriteWord(ids.Count);
-            foreach (var symbol in ids.Select(id => Symbols[id]))
-            {
+            foreach (var symbol in ids.Select(id => Symbols[id])) {
                 symbol.Write(stream);
             }
 
@@ -72,9 +72,12 @@ namespace Inu.Assembler
 
         public void Read(Stream stream)
         {
-            stream.ReadWord(); // version
+            var version = stream.ReadWord(); // version
+            if (version >= 0x0200) {
+                AddressBitCount = stream.ReadByte();
+            }
 
-            foreach (Segment segment in Segments) {
+            foreach (var segment in Segments) {
                 segment.Read(stream);
             }
 

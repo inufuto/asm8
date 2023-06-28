@@ -7,6 +7,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Xml.Linq;
 
 
 namespace Inu.Linker
@@ -76,12 +77,10 @@ namespace Inu.Linker
                 var libraries = new List<Library.Library>();
                 while (index < args.Count) {
                     var objName = args[index++];
-                    //objNames.Add(objName);
                     var objDirectory = Path.GetDirectoryName(objName);
                     if (string.IsNullOrEmpty(objDirectory)) {
                         objName = directory + Path.DirectorySeparatorChar + objName;
                     }
-
                     var extension = Path.GetExtension(objName);
                     if (extension.ToLower() == Library.Library.Extension) {
                         var library = new Library.Library();
@@ -92,7 +91,6 @@ namespace Inu.Linker
                         ReadObject(objName);
                     }
                 }
-
                 {
                     var changed = true;
                     while (changed) {
@@ -183,7 +181,7 @@ namespace Inu.Linker
             return true;
         }
 
-        protected abstract byte[] ToBytes(int value);
+        protected abstract byte[] ToBytes(int value, int size);
 
         private void ShowError(string error)
         {
@@ -224,7 +222,7 @@ namespace Inu.Linker
                     if (relative) {
                         addedValue -= location.Value + 2;
                     }
-                    segments[location.Type].WriteWord(location.Value, ToBytes(addedValue));
+                    segments[location.Type].WriteBytes(location.Value, ToBytes(addedValue,2));
                     break;
                 case AddressPart.LowByte:
                     if (relative) {
@@ -237,6 +235,12 @@ namespace Inu.Linker
                         addedValue -= location.Value + 1;
                     }
                     segments[location.Type].WriteByte(location.Value, (byte)((addedValue >> 8) & 0xff));
+                    break;
+                case AddressPart.TByte:
+                    if (relative) {
+                        addedValue -= location.Value + 2;
+                    }
+                    segments[location.Type].WriteBytes(location.Value, ToBytes(addedValue,3));
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();
@@ -328,7 +332,7 @@ namespace Inu.Linker
             SaveTargetFile(fileName, ext);
         }
 
-        private static void PrintColumn(StreamWriter writer, string s, int maxLength)
+        private static void PrintColumn(TextWriter writer, string s, int maxLength)
         {
             writer.Write(s);
             var n = maxLength + 2 - s.Length;
@@ -337,20 +341,20 @@ namespace Inu.Linker
             }
         }
 
-        public static string ToHex(int addressValue)
+        public static string ToHex(int value, int addressValue)
         {
-            return $"{addressValue:X04}";
+            return value.ToString("X" + addressValue);
         }
-
-        private const int AddressColumnLength = 5;
 
         private void SaveSymbolFile(string fileName)
         {
-            using StreamWriter stream = new StreamWriter(fileName, false, Encoding.UTF8);
+            var hexDigitCount = symbols.Values.Max(s=>s.Object.AddressBitCount) / 4;
+            var addressColumnLength = hexDigitCount + 1;
+            using var stream = new StreamWriter(fileName, false, Encoding.UTF8);
             var maxNameLength = 0;
             var maxFileNameLength = 0;
             var nameIndexedSymbols = new SortedDictionary<string, Symbol>();
-            foreach (KeyValuePair<int, Symbol> pair in symbols) {
+            foreach (var pair in symbols) {
                 var name = identifiers.FromId(pair.Key);
                 Debug.Assert(name != null);
                 Debug.Assert(pair.Value.Object.Name != null);
@@ -360,22 +364,21 @@ namespace Inu.Linker
                 nameIndexedSymbols[name] = pair.Value;
             }
             PrintColumn(stream, "Symbol", maxNameLength);
-            PrintColumn(stream, "Value", AddressColumnLength);
+            PrintColumn(stream, "Value", addressColumnLength);
             PrintColumn(stream, "File", maxNameLength);
             stream.WriteLine();
-            for (int i = 0; i < (maxNameLength + AddressColumnLength + maxFileNameLength) * 4 / 3; ++i) {
+            for (var i = 0; i < (maxNameLength + addressColumnLength + maxFileNameLength) * 4 / 3; ++i) {
                 stream.Write('=');
             }
             stream.WriteLine();
-            foreach (var pair in nameIndexedSymbols) {
-                var name = pair.Key;
-                Debug.Assert(pair.Value.Object.Name != null);
-                var objName = pair.Value.Object.Name;
-                var address = pair.Value.Address;
+            foreach (var (name, value) in nameIndexedSymbols) {
+                Debug.Assert(value.Object.Name != null);
+                var objName = value.Object.Name;
+                var address = value.Address;
 
                 var addressValue = address.Value;
                 PrintColumn(stream, name, maxNameLength);
-                PrintColumn(stream, ToHex(addressValue), AddressColumnLength);
+                PrintColumn(stream, ToHex(addressValue, hexDigitCount), addressColumnLength);
                 PrintColumn(stream, objName, maxFileNameLength);
                 stream.WriteLine();
             }
@@ -385,7 +388,7 @@ namespace Inu.Linker
                 var segment = segments[addressType];
                 if (segment.Empty) continue;
                 stream.Write(SegmentNames[addressType] + " ");
-                segment.PrintRanges(stream);
+                segment.PrintRanges(stream, hexDigitCount);
                 stream.WriteLine();
             }
         }
