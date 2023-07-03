@@ -1419,6 +1419,7 @@ namespace Inu.Assembler.Sc62015
                     WriteByte(rightToken, value);
                     return;
                 }
+                ShowSyntaxError(rightToken);
             }
             if (LastToken.IsReservedWord('[')) {
                 NextToken();
