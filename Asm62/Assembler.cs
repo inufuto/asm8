@@ -57,7 +57,7 @@ namespace Inu.Assembler.Sc62015
         public override bool ZeroPageAvailable => true;
         public override AddressPart PointerAddressPart => AddressPart.TByte;
 
-        public Assembler() : base(new Tokenizer(),20) { }
+        public Assembler() : base(new Tokenizer(), 20) { }
 
         protected override bool IsRelativeOffsetInRange(int offset)
         {
@@ -2094,9 +2094,24 @@ namespace Inu.Assembler.Sc62015
             return true;
         }
 
-        protected override bool Directive(ReservedWord reservedWord)
+        protected override Dictionary<int, Func<bool>> StorageDirectives
         {
-            return base.Directive(reservedWord);
+            get
+            {
+                var storageDirectives = base.StorageDirectives;
+                storageDirectives[Keyword.DEFP] = PointerStorageOperand;
+                storageDirectives[Keyword.DP] = PointerStorageOperand;
+                return storageDirectives;
+            }
+        }
+
+        private bool PointerStorageOperand()
+        {
+            var token = LastToken;
+            var value = Expression();
+            if (value == null) { return false; }
+            WritePointer(token, value);
+            return true;
         }
     }
 }

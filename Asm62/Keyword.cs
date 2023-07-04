@@ -26,72 +26,74 @@
         public const int DADL = MinId + 19;
         public const int DEC = MinId + 20;
         public const int Decrement = MinId + 21;
-        public const int DH = MinId + 22;
-        public const int DI = MinId + 23;
-        public const int DL = MinId + 24;
-        public const int DSBL = MinId + 25;
-        public const int DSLL = MinId + 26;
-        public const int DSRL = MinId + 27;
-        public const int DX = MinId + 28;
-        public const int EX = MinId + 29;
-        public const int EXL = MinId + 30;
-        public const int EXP = MinId + 31;
-        public const int EXW = MinId + 32;
-        public const int F = MinId + 33;
-        public const int HALT = MinId + 34;
-        public const int I = MinId + 35;
-        public const int IL = MinId + 36;
-        public const int IMR = MinId + 37;
-        public const int INC = MinId + 38;
-        public const int Increment = MinId + 39;
-        public const int IR = MinId + 40;
-        public const int JP = MinId + 41;
-        public const int JPC = MinId + 42;
-        public const int JPF = MinId + 43;
-        public const int JPNC = MinId + 44;
-        public const int JPNZ = MinId + 45;
-        public const int JPZ = MinId + 46;
-        public const int JR = MinId + 47;
-        public const int JRC = MinId + 48;
-        public const int JRNC = MinId + 49;
-        public const int JRNZ = MinId + 50;
-        public const int JRZ = MinId + 51;
-        public const int MV = MinId + 52;
-        public const int MVL = MinId + 53;
-        public const int MVLD = MinId + 54;
-        public const int MVP = MinId + 55;
-        public const int MVW = MinId + 56;
-        public const int NC = MinId + 57;
-        public const int NOP = MinId + 58;
-        public const int NZ = MinId + 59;
-        public const int OFF = MinId + 60;
-        public const int PMDF = MinId + 61;
-        public const int POPS = MinId + 62;
-        public const int POPU = MinId + 63;
-        public const int PUSHS = MinId + 64;
-        public const int PUSHU = MinId + 65;
-        public const int PX = MinId + 66;
-        public const int PY = MinId + 67;
-        public const int RC = MinId + 68;
-        public const int RESET = MinId + 69;
-        public const int RET = MinId + 70;
-        public const int RETF = MinId + 71;
-        public const int RETI = MinId + 72;
-        public const int ROL = MinId + 73;
-        public const int ROR = MinId + 74;
-        public const int S = MinId + 75;
-        public const int SBC = MinId + 76;
-        public const int SBCL = MinId + 77;
-        public const int SC = MinId + 78;
-        public const int SI = MinId + 79;
-        public const int SUB = MinId + 80;
-        public const int SWAP = MinId + 81;
-        public const int TEST = MinId + 82;
-        public const int U = MinId + 83;
-        public const int WAIT = MinId + 84;
-        public const int X = MinId + 85;
-        public const int Y = MinId + 86;
-        public const int Z = MinId + 87;
+        public const int DEFP = MinId + 22;
+        public const int DH = MinId + 23;
+        public const int DI = MinId + 24;
+        public const int DL = MinId + 25;
+        public const int DP = MinId + 26;
+        public const int DSBL = MinId + 27;
+        public const int DSLL = MinId + 28;
+        public const int DSRL = MinId + 29;
+        public const int DX = MinId + 30;
+        public const int EX = MinId + 31;
+        public const int EXL = MinId + 32;
+        public const int EXP = MinId + 33;
+        public const int EXW = MinId + 34;
+        public const int F = MinId + 35;
+        public const int HALT = MinId + 36;
+        public const int I = MinId + 37;
+        public const int IL = MinId + 38;
+        public const int IMR = MinId + 39;
+        public const int INC = MinId + 40;
+        public const int Increment = MinId + 41;
+        public const int IR = MinId + 42;
+        public const int JP = MinId + 43;
+        public const int JPC = MinId + 44;
+        public const int JPF = MinId + 45;
+        public const int JPNC = MinId + 46;
+        public const int JPNZ = MinId + 47;
+        public const int JPZ = MinId + 48;
+        public const int JR = MinId + 49;
+        public const int JRC = MinId + 50;
+        public const int JRNC = MinId + 51;
+        public const int JRNZ = MinId + 52;
+        public const int JRZ = MinId + 53;
+        public const int MV = MinId + 54;
+        public const int MVL = MinId + 55;
+        public const int MVLD = MinId + 56;
+        public const int MVP = MinId + 57;
+        public const int MVW = MinId + 58;
+        public const int NC = MinId + 59;
+        public const int NOP = MinId + 60;
+        public const int NZ = MinId + 61;
+        public const int OFF = MinId + 62;
+        public const int PMDF = MinId + 63;
+        public const int POPS = MinId + 64;
+        public const int POPU = MinId + 65;
+        public const int PUSHS = MinId + 66;
+        public const int PUSHU = MinId + 67;
+        public const int PX = MinId + 68;
+        public const int PY = MinId + 69;
+        public const int RC = MinId + 70;
+        public const int RESET = MinId + 71;
+        public const int RET = MinId + 72;
+        public const int RETF = MinId + 73;
+        public const int RETI = MinId + 74;
+        public const int ROL = MinId + 75;
+        public const int ROR = MinId + 76;
+        public const int S = MinId + 77;
+        public const int SBC = MinId + 78;
+        public const int SBCL = MinId + 79;
+        public const int SC = MinId + 80;
+        public const int SI = MinId + 81;
+        public const int SUB = MinId + 82;
+        public const int SWAP = MinId + 83;
+        public const int TEST = MinId + 84;
+        public const int U = MinId + 85;
+        public const int WAIT = MinId + 86;
+        public const int X = MinId + 87;
+        public const int Y = MinId + 88;
+        public const int Z = MinId + 89;
 
         public new static readonly Dictionary<int, string> Words = new()
         {
@@ -117,9 +119,11 @@
             { DADL,"DADL"},
             { DEC,"DEC"},
             { Decrement,"--"},
+            { DEFP,"DEFP"},
             { DH,"DH"},
             { DI,"DI"},
             { DL,"DL"},
+            { DP,"DP"},
             { DSBL,"DSBL"},
             { DSLL,"DSLL"},
             { DSRL,"DSRL"},

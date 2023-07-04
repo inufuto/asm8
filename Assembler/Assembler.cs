@@ -456,7 +456,7 @@ namespace Inu.Assembler
         }
         private bool WordStorageOperand()
         {
-            Token token = LastToken;
+            var token = LastToken;
             var value = Expression();
             if (value == null) { return false; }
             WriteWord(token, value);
@@ -464,7 +464,7 @@ namespace Inu.Assembler
         }
         private bool SpaceStorageOperand()
         {
-            Token token = LastToken;
+            var token = LastToken;
             var value = Expression();
             if (value == null) { return false; }
             if (!value.IsConst()) {
@@ -474,17 +474,17 @@ namespace Inu.Assembler
             return true;
         }
 
-        private static readonly Dictionary<int, Func<Assembler, bool>> StorageDirectives = new Dictionary<int, Func<Assembler, bool>>
+        protected virtual Dictionary<int, Func<bool>> StorageDirectives => new()
         {
-            { Keyword.DefB, (Assembler t)=>t.ByteStorageOperand()},
-            { Keyword.DefW, (Assembler t)=>t.WordStorageOperand()},
-            { Keyword.DefS, (Assembler t)=>t.SpaceStorageOperand()},
-            { Keyword.Db, (Assembler t)=>t.ByteStorageOperand()},
-            { Keyword.Dw, (Assembler t)=>t.WordStorageOperand()},
-            { Keyword.Ds, (Assembler t)=>t.SpaceStorageOperand()},
+            { Keyword.DefB, ByteStorageOperand },
+            { Keyword.DefW, WordStorageOperand},
+            { Keyword.DefS, SpaceStorageOperand},
+            { Keyword.Db, ByteStorageOperand},
+            { Keyword.Dw, WordStorageOperand},
+            { Keyword.Ds, SpaceStorageOperand},
         };
 
-        private bool StorageDirective()
+        protected virtual bool StorageDirective()
         {
             var reservedWord = LastToken as ReservedWord;
             Debug.Assert(reservedWord != null);
@@ -492,12 +492,13 @@ namespace Inu.Assembler
                 return false;
             do {
                 NextToken();
-                if (!function(this)) {
+                if (!function()) {
                     ShowSyntaxError();
                 }
             } while (LastToken.IsReservedWord(','));
             return true;
         }
+
         private void EquDirective(Identifier label)
         {
             NextToken();
