@@ -19,10 +19,7 @@ namespace Inu.Assembler
 
     public class Address : IComparable<Address>
     {
-        public static int AddressSize = 2;
-
         public const int RelativeBit = 0x80;
-        public const int TypeMask = 0x07;
 
         public readonly AddressType Type;
         public readonly bool Relative;
@@ -63,7 +60,7 @@ namespace Inu.Assembler
                 Relative = true;
                 b = stream.ReadByte();
             }
-            Type = (AddressType)(b & TypeMask);
+            Type = (AddressType)(sbyte)b;
             Value = stream.ReadWord();
             if (Type == AddressType.External) {
                 Id = stream.ReadWord();

@@ -43,6 +43,7 @@ namespace Inu.Linker
         private readonly Dictionary<int, Symbol> symbols = new Dictionary<int, Symbol>();
         private readonly SortedDictionary<Address, External> externals = new SortedDictionary<Address, External>();
         private readonly List<string> errors = new List<string>();
+        private int hexDigitCount = 4;
 
         protected Linker()
         {
@@ -177,6 +178,9 @@ namespace Inu.Linker
                     maxAddress = result;
                 }
                 segments[addressType].Add(minAddress, maxAddress);
+                if (minAddress >= 0x10000 || maxAddress is >= 0x10000) {
+                    hexDigitCount = 5;
+                }
             }
             return true;
         }
@@ -222,7 +226,7 @@ namespace Inu.Linker
                     if (relative) {
                         addedValue -= location.Value + 2;
                     }
-                    segments[location.Type].WriteBytes(location.Value, ToBytes(addedValue,2));
+                    segments[location.Type].WriteBytes(location.Value, ToBytes(addedValue, 2));
                     break;
                 case AddressPart.LowByte:
                     if (relative) {
@@ -240,7 +244,7 @@ namespace Inu.Linker
                     if (relative) {
                         addedValue -= location.Value + 2;
                     }
-                    segments[location.Type].WriteBytes(location.Value, ToBytes(addedValue,3));
+                    segments[location.Type].WriteBytes(location.Value, ToBytes(addedValue, 3));
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();
@@ -341,14 +345,17 @@ namespace Inu.Linker
             }
         }
 
-        public static string ToHex(int value, int addressValue)
+        public static string ToHex(int value, int length)
         {
-            return value.ToString("X" + addressValue);
+            var hex = value.ToString("X" + length);
+            if (hex.Length > length) {
+                hex = hex[^length..];
+            }
+            return hex;
         }
 
         private void SaveSymbolFile(string fileName)
         {
-            var hexDigitCount = symbols.Values.Max(s=>s.Object.AddressBitCount) / 4;
             var addressColumnLength = hexDigitCount + 1;
             using var stream = new StreamWriter(fileName, false, Encoding.UTF8);
             var maxNameLength = 0;

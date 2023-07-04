@@ -14,43 +14,46 @@ namespace Inu.Assembler.Sc62015
         private static readonly int[] RegisterIds = { Keyword.A, Keyword.IL, Keyword.BA, Keyword.I, Keyword.X, Keyword.Y, Keyword.U, Keyword.S };
         private static readonly int[] RegisterSizes = { 1, 1, 2, 2, 3, 3, 3, 3 };
 
-        private static readonly Dictionary<int, int> InternalRamAddresses = new()
+        private static readonly Dictionary<int, (int, int)> InternalRamAddresses = new()
         {
-            { Keyword.BP, 0xec },
-            { Keyword.PX, 0xed },
-            { Keyword.PY, 0xee },
-            { Keyword.IMR, 0xfb },
-            { Keyword.SI, 0xda },
-            { Keyword.DI, 0xdd },
-            { Keyword.BX, 0xd4 },
-            { Keyword.CX, 0xd6 },
-            { Keyword.DX, 0xd8 },
-            { Keyword.BL, 0xd4 },
-            { Keyword.BH, 0xd5 },
-            { Keyword.CL, 0xd6 },
-            { Keyword.CH, 0xd7 },
-            { Keyword.DL, 0xd8 },
-            { Keyword.DH, 0xd9 },
+            { Keyword.BP, (0xec, 1) },
+            { Keyword.PX, (0xed, 1)},
+            { Keyword.PY, (0xee,1)},
+            { Keyword.IMR, (0xfb, 1) },
+            { Keyword.SI, (0xda, 3) },
+            { Keyword.DI, (0xdd, 3) },
+            { Keyword.BX, (0xd4, 2) },
+            { Keyword.CX, (0xd6, 2) },
+            { Keyword.DX, (0xd8, 2) },
+            { Keyword.BL, (0xd4, 1) },
+            { Keyword.BH, (0xd5, 1) },
+            { Keyword.CL, (0xd6, 1) },
+            { Keyword.CH, (0xd7, 1) },
+            { Keyword.DL, (0xd8, 1) },
+            { Keyword.DH, (0xd9, 1) },
         };
 
         private class PreByte
         {
             public readonly int Code;
             public readonly Address Offset;
+            public readonly int Size;
             public readonly PreBytePurpose Purpose;
 
-            public PreByte(int code, Address? offset, PreBytePurpose purpose)
+            public PreByte(int code, Address? offset, PreBytePurpose purpose, int size)
             {
                 Code = code;
                 Offset = offset != null ? offset : new Address(0);
                 Purpose = purpose;
+                Size = size;
             }
 
-            public PreByte(int code, PreBytePurpose purpose)
+            public PreByte(int code, PreBytePurpose purpose, int size)
             {
                 Code = code;
                 Offset = new Address(0);
                 Purpose = purpose;
+                Size = size;
             }
         }
 
@@ -104,10 +107,10 @@ namespace Inu.Assembler.Sc62015
             if (LastToken is ReservedWord reservedWord && InternalRamAddresses.TryGetValue(reservedWord.Id, out var address)) {
                 NextToken();
                 if (purpose.HasFlag(PreBytePurpose.First)) {
-                    return new PreByte(0x30, new Address(address), PreBytePurpose.First);
+                    return new PreByte(0x30, new Address(address.Item1), PreBytePurpose.First, address.Item2);
                 }
                 if (purpose.HasFlag(PreBytePurpose.Second)) {
-                    return new PreByte(0x22, new Address(address), PreBytePurpose.Second);
+                    return new PreByte(0x22, new Address(address.Item1), PreBytePurpose.Second, address.Item2);
                 }
             }
             if (!LastToken.IsReservedWord('(')) return null;
@@ -120,7 +123,7 @@ namespace Inu.Assembler.Sc62015
                         if (purpose.HasFlag(PreBytePurpose.First)) {
                             NextToken();
                             AcceptReservedWord(')');
-                            return new PreByte(0x24, PreBytePurpose.First);
+                            return new PreByte(0x24, PreBytePurpose.First, 1);
                         }
                         ShowInvalidAddressing(LastToken);
                     }
@@ -128,21 +131,21 @@ namespace Inu.Assembler.Sc62015
                         if (purpose.HasFlag(PreBytePurpose.Second)) {
                             NextToken();
                             AcceptReservedWord(')');
-                            return new PreByte(0x21, PreBytePurpose.Second);
+                            return new PreByte(0x21, PreBytePurpose.Second, 1);
                         }
                         ShowInvalidAddressing(LastToken);
                     }
-                    var preByte = new PreByte(0, Expression(), PreBytePurpose.First | PreBytePurpose.Second);
+                    var preByte = new PreByte(0, Expression(), PreBytePurpose.First | PreBytePurpose.Second, 1);
                     AcceptReservedWord(')');
                     return preByte;
                 }
                 AcceptReservedWord(')');
-                return new PreByte(0, PreBytePurpose.First | PreBytePurpose.Second);
+                return new PreByte(0, PreBytePurpose.First | PreBytePurpose.Second, 1);
             }
             if (LastToken.IsReservedWord(Keyword.PX)) {
                 if (purpose.HasFlag(PreBytePurpose.First)) {
                     NextToken();
-                    var preByte = new PreByte(0x34, Offset(), PreBytePurpose.First);
+                    var preByte = new PreByte(0x34, Offset(), PreBytePurpose.First, 1);
                     AcceptReservedWord(')');
                     return preByte;
                 }
@@ -151,24 +154,24 @@ namespace Inu.Assembler.Sc62015
             if (LastToken.IsReservedWord(Keyword.PY)) {
                 if (purpose.HasFlag(PreBytePurpose.Second)) {
                     NextToken();
-                    var preByte = new PreByte(0x23, Offset(), PreBytePurpose.Second);
+                    var preByte = new PreByte(0x23, Offset(), PreBytePurpose.Second, 1);
                     AcceptReservedWord(')');
                     return preByte;
                 }
                 ShowInvalidAddressing(LastToken);
             }
             if (purpose.HasFlag(PreBytePurpose.First)) {
-                var preByte = new PreByte(0x30, Expression(), PreBytePurpose.First);
+                var preByte = new PreByte(0x30, Expression(), PreBytePurpose.First, 1);
                 AcceptReservedWord(')');
                 return preByte;
             }
             if (purpose.HasFlag(PreBytePurpose.Second)) {
-                var preByte = new PreByte(0x22, Expression(), PreBytePurpose.Second);
+                var preByte = new PreByte(0x22, Expression(), PreBytePurpose.Second, 1);
                 AcceptReservedWord(')');
                 return preByte;
             }
             ShowInvalidAddressing(LastToken);
-            return new PreByte(0, 0);
+            return new PreByte(0, 0, 1);
         }
 
 
@@ -1054,14 +1057,27 @@ namespace Inu.Assembler.Sc62015
                 WriteByte(0x4f);
                 return;
             }
-            if (LastToken.IsReservedWord(Keyword.IMR)) {
-                NextToken();
-                WriteByte(0x30);
-                WriteByte(0xe8);
-                WriteByte(0x37);
-                WriteByte(0xfb);
-                return;
+            {
+                var preByte = ParsePreByte(PreBytePurpose.First | PreBytePurpose.Second);
+                if (preByte != null) {
+                    NextToken();
+                    if (preByte.Code != 0) {
+                        WriteByte(preByte.Code);
+                    }
+                    WriteByte(0xe8 - 1 + preByte.Size);
+                    WriteByte(0x37);
+                    WriteByte(preByte.Offset.Value);
+                    return;
+                }
             }
+            //if (LastToken.IsReservedWord(Keyword.IMR)) {
+            //    NextToken();
+            //    WriteByte(0x30);
+            //    WriteByte(0xe8);
+            //    WriteByte(0x37);
+            //    WriteByte(0xfb);
+            //    return;
+            //}
             {
                 var registerIndex = RegisterIndex(LastToken);
                 if (registerIndex != null) {
@@ -1084,14 +1100,27 @@ namespace Inu.Assembler.Sc62015
                 WriteByte(0x5f);
                 return;
             }
-            if (LastToken.IsReservedWord(Keyword.IMR)) {
-                NextToken();
-                WriteByte(0x30);
-                WriteByte(0xe0);
-                WriteByte(0x27);
-                WriteByte(0xfb);
-                return;
+            {
+                var preByte = ParsePreByte(PreBytePurpose.First | PreBytePurpose.Second);
+                if (preByte != null) {
+                    NextToken();
+                    if (preByte.Code != 0) {
+                        WriteByte(preByte.Code);
+                    }
+                    WriteByte(0xe0 - 1 + preByte.Size);
+                    WriteByte(0x27);
+                    WriteByte(preByte.Offset.Value);
+                    return;
+                }
             }
+            //if (LastToken.IsReservedWord(Keyword.IMR)) {
+            //    NextToken();
+            //    WriteByte(0x30);
+            //    WriteByte(0xe0);
+            //    WriteByte(0x27);
+            //    WriteByte(0xfb);
+            //    return;
+            //}
             {
                 var registerIndex = RegisterIndex(LastToken);
                 if (registerIndex != null) {
@@ -1130,6 +1159,19 @@ namespace Inu.Assembler.Sc62015
                     ShowInvalidRegister(LastToken);
                 }
             }
+            {
+                var preByte = ParsePreByte(PreBytePurpose.First | PreBytePurpose.Second);
+                if (preByte != null) {
+                    NextToken();
+                    if (preByte.Code != 0) {
+                        WriteByte(preByte.Code);
+                    }
+                    WriteByte(0xe8 - 1 + preByte.Size);
+                    WriteByte(0x36);
+                    WriteByte(preByte.Offset.Value);
+                    return;
+                }
+            }
             ShowSyntaxError(LastToken);
         }
 
@@ -1154,6 +1196,19 @@ namespace Inu.Assembler.Sc62015
                         return;
                     }
                     ShowInvalidRegister(LastToken);
+                }
+            }
+            {
+                var preByte = ParsePreByte(PreBytePurpose.First | PreBytePurpose.Second);
+                if (preByte != null) {
+                    NextToken();
+                    if (preByte.Code != 0) {
+                        WriteByte(preByte.Code);
+                    }
+                    WriteByte(0xe0 - 1 + preByte.Size);
+                    WriteByte(0x26);
+                    WriteByte(preByte.Offset.Value);
+                    return;
                 }
             }
             ShowSyntaxError(LastToken);

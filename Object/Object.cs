@@ -8,22 +8,20 @@ namespace Inu.Assembler
 {
     public class Object
     {
-        private const int Version = 0x0200;
+        private const int Version = 0x0100;
         public const string Extension = ".obj";
 
         public string? Name { get; private set; }
         public readonly Segment[] Segments = { new(AddressType.Code), new(AddressType.Data), new(AddressType.ZeroPage) };
         public readonly Dictionary<int, Symbol> Symbols = new();
         public readonly Dictionary<Address, Address> AddressUsages = new();
-        public int AddressBitCount { get; private set; }
 
-        public Object(string? fileName, int addressBitCount = 16)
+        public Object(string? fileName)
         {
             Name = Path.GetFileName(fileName);
-            AddressBitCount = addressBitCount;
         }
 
-        public Object(int addressBitCount = 16) : this(null, addressBitCount) { }
+        public Object(int addressBitCount = 16) : this(null) { }
 
 
         public void Save(string fileName)
@@ -36,7 +34,6 @@ namespace Inu.Assembler
         public void Write(Stream stream)
         {
             stream.WriteWord(Version);
-            stream.WriteByte(AddressBitCount);
 
             foreach (var segment in Segments) {
                 segment.Write(stream);
@@ -72,10 +69,7 @@ namespace Inu.Assembler
 
         public void Read(Stream stream)
         {
-            var version = stream.ReadWord(); // version
-            if (version >= 0x0200) {
-                AddressBitCount = stream.ReadByte();
-            }
+            stream.ReadWord(); // version
 
             foreach (var segment in Segments) {
                 segment.Read(stream);
