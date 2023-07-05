@@ -790,7 +790,7 @@ namespace Inu.Assembler.Sc62015
                                         WriteByte(preByte1.Code);
                                     }
 
-                                    WriteByte(0xd1);
+                                    WriteByte(0xd2);
                                     WriteByte(leftToken, preByte1.Offset);
                                     WritePointer(rightToken, offset);
                                     return;
@@ -802,7 +802,7 @@ namespace Inu.Assembler.Sc62015
                                         WriteByte(preByte1.Code);
                                     }
 
-                                    WriteByte(0xe1);
+                                    WriteByte(0xe2);
                                     WriteByte(secondCode.Value);
                                     WriteByte(leftToken, preByte1.Offset);
                                     if (offset != null) {
@@ -817,7 +817,7 @@ namespace Inu.Assembler.Sc62015
                                     WriteByte(preByte);
                                 }
 
-                                WriteByte(0xf1);
+                                WriteByte(0xf2);
                                 WriteByte(secondCode.Value);
                                 WriteByte(rightToken, preByte1.Offset);
                                 WriteByte(rightToken, preByte2.Offset);
