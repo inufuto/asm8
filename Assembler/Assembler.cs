@@ -108,6 +108,9 @@ namespace Inu.Assembler
         protected void WriteByte(Token token, Address value)
         {
             if (value.IsRelocatable() || value.Type == AddressType.External) {
+                if (value.Part == AddressPart.TByte) {
+                    value = value.PartOf(AddressPart.Word);
+                }
                 if (value.Part == AddressPart.Word) {
                     value = value.Low() ?? value;
                 }
@@ -124,6 +127,9 @@ namespace Inu.Assembler
         protected void WriteWord(Token token, Address value)
         {
             if (value.IsRelocatable() || value.Type == AddressType.External) {
+                if (value.Part == AddressPart.TByte) {
+                    value = value.PartOf(AddressPart.Word);
+                }
                 Debug.Assert(value.Part == AddressPart.Word);
                 @object.AddressUsages[CurrentAddress] = value;
             }

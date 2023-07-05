@@ -79,7 +79,7 @@ namespace Inu.Assembler
             if (IsConst()) {
                 return Value is >= 0 and < 0x100;
             }
-            return Part == AddressPart.HighByte || Part == AddressPart.LowByte;
+            return Part is AddressPart.HighByte or AddressPart.LowByte;
         }
 
 
