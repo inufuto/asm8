@@ -365,7 +365,16 @@ namespace Inu.Assembler
                         }
                         if (Address.IsOperationAvailable(operatorToken.Id, left, right)) {
                             var type = left.Type == right.Type ? AddressType.Const : left.Type;
-                            left = new Address(type, operation(left.Value, right.Value), left.Id);
+                            
+                            var newPart = AddressPart.Word;
+                            if (left.Part == AddressPart.LowByte && (right.Part == AddressPart.LowByte || right.Type == AddressType.Const)) {
+                                newPart = AddressPart.LowByte;
+                            }
+                            if (right.Part == AddressPart.LowByte && (left.Part == AddressPart.LowByte || left.Type == AddressType.Const)) {
+                                newPart = AddressPart.LowByte;
+                            }
+                            
+                            left = new Address(type, operation(left.Value, right.Value), left.Id, newPart);
                         }
                         else {
                             ShowAddressUsageError(leftToken);
@@ -771,7 +780,7 @@ namespace Inu.Assembler
         {
             var bytes = new byte[size];
             for (var i = 0; i < size; ++i) {
-                bytes[size - i] = (byte)(value & 0xff);
+                bytes[size - i - 1] = (byte)(value & 0xff);
                 value >>= 8;
             }
             return bytes;

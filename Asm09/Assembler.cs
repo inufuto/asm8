@@ -831,7 +831,7 @@ namespace Inu.Assembler.Mc6809
                 if (!LastToken.IsReservedWord(',')) break;
                 NextToken();
             }
-            exit:
+        exit:
             WriteByte(b);
         }
 
@@ -858,12 +858,18 @@ namespace Inu.Assembler.Mc6809
 
                 if (value.IsConst()) {
                     var constValue = value.Value;
-                    if (constValue > 0x00 && constValue <= 0xff) {
+                    if (constValue is > 0x00 and <= 0xff) {
                         // direct mode
                         WriteByte(instruction | directModeBits);
                         WriteByte(constValue);
                         return;
                     }
+                }
+                if (value.Part == AddressPart.LowByte) {
+                    // direct mode
+                    WriteByte(instruction | directModeBits);
+                    WriteByte(expressionToken, value);
+                    return;
                 }
 
                 // extended mode
@@ -927,7 +933,7 @@ namespace Inu.Assembler.Mc6809
                 WriteWord(expressionToken, value);
             }
 
-            exitIndirectMode:
+        exitIndirectMode:
             AcceptReservedWord(']');
         }
 
@@ -976,7 +982,7 @@ namespace Inu.Assembler.Mc6809
                 WriteWord(expressionToken, value);
             }
 
-            exitIndirectMode:
+        exitIndirectMode:
             AcceptReservedWord(']');
         }
 
@@ -1137,8 +1143,7 @@ namespace Inu.Assembler.Mc6809
         {
             registerCode = 0;
             if (!(LastToken is ReservedWord reservedWord)) return false;
-            switch (reservedWord.Id)
-            {
+            switch (reservedWord.Id) {
                 case Keyword.X:
                     registerCode = 0b0000000;
                     break;
