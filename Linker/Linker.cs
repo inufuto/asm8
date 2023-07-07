@@ -242,7 +242,7 @@ namespace Inu.Linker
                     break;
                 case AddressPart.TByte:
                     if (relative) {
-                        addedValue -= location.Value + 2;
+                        addedValue -= location.Value + 3;
                     }
                     segments[location.Type].WriteBytes(location.Value, ToBytes(addedValue, 3));
                     break;

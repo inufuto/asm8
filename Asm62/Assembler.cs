@@ -717,8 +717,7 @@ namespace Inu.Assembler.Sc62015
         {
             var leftToken = LastToken;
             {
-                if (ParseExternalRam(PreBytePurpose.First | PreBytePurpose.Second, out var secondCode, out var preByte1,
-                        out var offset)) {
+                if (ParseExternalRam(PreBytePurpose.First | PreBytePurpose.Second, out var secondCode, out var preByte1, out var offset)) {
                     AcceptReservedWord(',');
                     var rightToken = LastToken;
                     {
@@ -1223,6 +1222,9 @@ namespace Inu.Assembler.Sc62015
                     var rightToken = LastToken;
                     var preByte = ParsePreByte(PreBytePurpose.First | PreBytePurpose.Second);
                     if (preByte != null) {
+                        if (preByte.Code != 0) {
+                            WriteByte(preByte.Code);
+                        }
                         WriteByte(code | 0x02);
                         WriteByte(rightToken, preByte.Offset);
                         return;
