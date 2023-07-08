@@ -64,7 +64,7 @@ namespace Inu.Assembler.Sc62015
 
         protected override bool IsRelativeOffsetInRange(int offset)
         {
-            return offset is >= -0x100 and <= 0x100;
+            return offset is > -0x100 and < 0x100;
         }
 
 
@@ -1775,7 +1775,7 @@ namespace Inu.Assembler.Sc62015
         private void JR(int shortCode, int longCode)
         {
             var token = LastToken;
-            if (RelativeOffset(out var address, out int offset)) {
+            if (RelativeOffset(out var address, out var offset)) {
                 if (offset < 0) {
                     WriteByte(shortCode | 0x01);
                     WriteByte(-offset);

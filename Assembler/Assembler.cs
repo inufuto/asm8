@@ -634,6 +634,9 @@ namespace Inu.Assembler
                 case AddressType.External:
                     ShowAddressUsageError(token);
                     return false;
+                case AddressType.Code:
+                case AddressType.Data:
+                case AddressType.ZeroPage:
                 default:
                     if (address.Type == CurrentSegment.Type) {
                         offset = RelativeOffset(address);
