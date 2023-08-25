@@ -74,7 +74,7 @@ namespace Inu.Assembler
         private bool ReadHexValue(out int value)
         {
             value = 0;
-            string s = ReadWord(IsHexDigit);
+            var s = ReadWord(IsHexDigit);
             {
                 var c = char.ToUpper(LastChar);
                 if (c == HexValueTail) {

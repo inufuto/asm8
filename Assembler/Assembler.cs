@@ -15,18 +15,21 @@ namespace Inu.Assembler
         public Segment CurrentSegment { get; private set; }
         public int Pass { get; private set; }
 
-        private readonly Object @object = new Object();
+        private readonly Object @object;
         private bool addressChanged;
         private ListFile? listFile;
         private int nextAutoLabelId;
-        private readonly Stack<Block> blocks = new Stack<Block>();
+        private readonly Stack<Block> blocks = new();
 
-        protected Assembler(Language.Tokenizer tokenizer) : base(tokenizer)
+        protected Assembler(Language.Tokenizer tokenizer, int addressBitCount) : base(tokenizer)
         {
+            @object = new Object(addressBitCount);
             CurrentSegment = @object.Segments[0];
         }
 
         public virtual bool ZeroPageAvailable => false;
+        public virtual AddressPart PointerAddressPart => AddressPart.Word;
+
 
         public bool DefineSymbol(int id, Address address)
         {
@@ -105,6 +108,9 @@ namespace Inu.Assembler
         protected void WriteByte(Token token, Address value)
         {
             if (value.IsRelocatable() || value.Type == AddressType.External) {
+                if (value.Part == AddressPart.TByte) {
+                    value = value.PartOf(AddressPart.Word);
+                }
                 if (value.Part == AddressPart.Word) {
                     value = value.Low() ?? value;
                 }
@@ -116,19 +122,21 @@ namespace Inu.Assembler
             WriteByte(value.Value);
         }
 
-        protected abstract byte[] ToBytes(int value);
+        protected abstract byte[] ToBytes(int value, int size);
 
         protected void WriteWord(Token token, Address value)
         {
             if (value.IsRelocatable() || value.Type == AddressType.External) {
+                if (value.Part == AddressPart.TByte) {
+                    value = value.PartOf(AddressPart.Word);
+                }
                 Debug.Assert(value.Part == AddressPart.Word);
                 @object.AddressUsages[CurrentAddress] = value;
             }
             else if (!value.IsConst()) {
                 ShowAddressUsageError(token);
             }
-
-            byte[] bytes = ToBytes(value.Value);
+            var bytes = ToBytes(value.Value, 2);
             foreach (var b in bytes) {
                 WriteByte(b);
             }
@@ -136,11 +144,25 @@ namespace Inu.Assembler
 
         protected void WriteSpace(int value)
         {
-            for (int i = 0; i < value; ++i) {
+            for (var i = 0; i < value; ++i) {
                 CurrentSegment.WriteByte(0);
             }
         }
 
+        protected void WritePointer(Token token, Address value)
+        {
+            if (value.IsRelocatable() || value.Type == AddressType.External) {
+                value = value.PartOf(PointerAddressPart);
+                @object.AddressUsages[CurrentAddress] = value;
+            }
+            else if (!value.IsConst()) {
+                ShowAddressUsageError(token);
+            }
+            var bytes = ToBytes(value.Value, 3);
+            foreach (var b in bytes) {
+                WriteByte(b);
+            }
+        }
 
 
 
@@ -190,7 +212,7 @@ namespace Inu.Assembler
         }
 
 
-        protected virtual Address CurrentAddress => CurrentSegment.Tail;
+        protected virtual Address CurrentAddress => CurrentSegment.Tail.PartOf(PointerAddressPart);
 
 
         private Address? CharConstant()
@@ -222,21 +244,23 @@ namespace Inu.Assembler
             return value;
         }
 
-        private readonly Dictionary<int, Func<int, int>> Monomials = new Dictionary<int, Func<int, int>> {
-            { '+', (int value) => {return value; }},
-            { '-', (int value) =>{return -value; } },
-            { Keyword.Not, (int right) =>{return ~right; } },
-            { Keyword.Low, (int right) =>{return right & 0xff; } },
-            { Keyword.High, (int right) =>{return (right >> 8) & 0xff; } },
+        private readonly Dictionary<int, Func<int, int>> monomials = new Dictionary<int, Func<int, int>> {
+            { '+', (int value) => value },
+            { '-', (int value) => -value },
+            { Keyword.Not, right => ~right },
+            { Keyword.Low, right => right & 0xff },
+            { Keyword.High, right => (right >> 8) & 0xff },
+            { '<', right => right & 0xff },
+            { '>', right => (right >> 8) & 0xff },
         };
         private Address? Monomial()
         {
             var reservedWord = LastToken as ReservedWord;
             Debug.Assert(reservedWord != null);
-            if (!Monomials.TryGetValue(reservedWord.Id, out var function)) {
+            if (!monomials.TryGetValue(reservedWord.Id, out var function)) {
                 return null;
             }
-            Token rightToken = NextToken();
+            var rightToken = NextToken();
             var right = Factor();
             if (right == null) {
                 ShowSyntaxError();
@@ -245,8 +269,10 @@ namespace Inu.Assembler
             if (!right.IsConst()) {
                 switch (reservedWord.Id) {
                     case Keyword.Low:
+                    case '<':
                         return right.Low();
                     case Keyword.High:
+                    case '>':
                         return right.High();
                     default:
                         ShowAddressUsageError(rightToken);
@@ -339,7 +365,16 @@ namespace Inu.Assembler
                         }
                         if (Address.IsOperationAvailable(operatorToken.Id, left, right)) {
                             var type = left.Type == right.Type ? AddressType.Const : left.Type;
-                            left = new Address(type, operation(left.Value, right.Value), left.Id);
+                            
+                            var newPart = AddressPart.Word;
+                            if (left.Part == AddressPart.LowByte && (right.Part == AddressPart.LowByte || right.Type == AddressType.Const)) {
+                                newPart = AddressPart.LowByte;
+                            }
+                            if (right.Part == AddressPart.LowByte && (left.Part == AddressPart.LowByte || left.Type == AddressType.Const)) {
+                                newPart = AddressPart.LowByte;
+                            }
+                            
+                            left = new Address(type, operation(left.Value, right.Value), left.Id, newPart);
                         }
                         else {
                             ShowAddressUsageError(leftToken);
@@ -407,7 +442,7 @@ namespace Inu.Assembler
                 Token token = NextToken();
                 if (token is Identifier label) {
                     NextToken();
-                    DefineSymbol(label, new Address(type, 0, label.Id));
+                    DefineSymbol(label, new Address(type, 0, label.Id, PointerAddressPart));
                 }
                 else {
                     ShowMissingIdentifier(token.Position);
@@ -436,7 +471,7 @@ namespace Inu.Assembler
         }
         private bool WordStorageOperand()
         {
-            Token token = LastToken;
+            var token = LastToken;
             var value = Expression();
             if (value == null) { return false; }
             WriteWord(token, value);
@@ -444,7 +479,7 @@ namespace Inu.Assembler
         }
         private bool SpaceStorageOperand()
         {
-            Token token = LastToken;
+            var token = LastToken;
             var value = Expression();
             if (value == null) { return false; }
             if (!value.IsConst()) {
@@ -454,17 +489,17 @@ namespace Inu.Assembler
             return true;
         }
 
-        private static readonly Dictionary<int, Func<Assembler, bool>> StorageDirectives = new Dictionary<int, Func<Assembler, bool>>
+        protected virtual Dictionary<int, Func<bool>> StorageDirectives => new()
         {
-            { Keyword.DefB, (Assembler t)=>t.ByteStorageOperand()},
-            { Keyword.DefW, (Assembler t)=>t.WordStorageOperand()},
-            { Keyword.DefS, (Assembler t)=>t.SpaceStorageOperand()},
-            { Keyword.Db, (Assembler t)=>t.ByteStorageOperand()},
-            { Keyword.Dw, (Assembler t)=>t.WordStorageOperand()},
-            { Keyword.Ds, (Assembler t)=>t.SpaceStorageOperand()},
+            { Keyword.DefB, ByteStorageOperand },
+            { Keyword.DefW, WordStorageOperand},
+            { Keyword.DefS, SpaceStorageOperand},
+            { Keyword.Db, ByteStorageOperand},
+            { Keyword.Dw, WordStorageOperand},
+            { Keyword.Ds, SpaceStorageOperand},
         };
 
-        private bool StorageDirective()
+        protected virtual bool StorageDirective()
         {
             var reservedWord = LastToken as ReservedWord;
             Debug.Assert(reservedWord != null);
@@ -472,12 +507,13 @@ namespace Inu.Assembler
                 return false;
             do {
                 NextToken();
-                if (!function(this)) {
+                if (!function()) {
                     ShowSyntaxError();
                 }
             } while (LastToken.IsReservedWord(','));
             return true;
         }
+
         private void EquDirective(Identifier label)
         {
             NextToken();
@@ -545,7 +581,6 @@ namespace Inu.Assembler
                         SegmentDirective(AddressType.ZeroPage);
                         return true;
                     }
-
                     break;
                 case Keyword.Public:
                     PublicDirective();
@@ -567,7 +602,7 @@ namespace Inu.Assembler
 
         protected static bool IsRelativeOffsetInByte(int offset)
         {
-            return offset >= -128 && offset <= 128;
+            return offset is >= -128 and <= 128;
         }
 
         protected int RelativeOffset(Address address)
@@ -599,6 +634,9 @@ namespace Inu.Assembler
                 case AddressType.External:
                     ShowAddressUsageError(token);
                     return false;
+                case AddressType.Code:
+                case AddressType.Data:
+                case AddressType.ZeroPage:
                 default:
                     if (address.Type == CurrentSegment.Type) {
                         offset = RelativeOffset(address);
@@ -632,7 +670,7 @@ namespace Inu.Assembler
 
         protected IfBlock NewIfBlock()
         {
-            IfBlock block = new IfBlock(AutoLabel(), AutoLabel());
+            var block = new IfBlock(AutoLabel(), AutoLabel());
             blocks.Push(block);
             return block;
         }
@@ -715,38 +753,40 @@ namespace Inu.Assembler
                 return Failure;
             }
 
-            string sourceName = Path.GetFullPath(args[0]);
-            string objName = Path.ChangeExtension(sourceName, Object.Extension);
-            string listName = Path.ChangeExtension(sourceName, ListFile.Ext);
+            var sourceName = Path.GetFullPath(args[0]);
+            var objName = Path.ChangeExtension(sourceName, Object.Extension);
+            var listName = Path.ChangeExtension(sourceName, ListFile.Ext);
             return Assemble(sourceName, objName, listName);
         }
     }
 
     public abstract class LittleEndianAssembler : Assembler
     {
-        protected LittleEndianAssembler(Tokenizer tokenizer) : base(tokenizer) { }
+        protected LittleEndianAssembler(Language.Tokenizer tokenizer, int addressChanged = 16) : base(tokenizer, addressChanged) { }
 
-        protected override byte[] ToBytes(int value)
+        protected override byte[] ToBytes(int value, int size)
         {
-            return new[]
-            {
-                (byte)(value & 0xff),
-                (byte)((value >> 8) & 0xff)
-            };
+            var bytes = new byte[size];
+            for (var i = 0; i < size; ++i) {
+                bytes[i] = (byte)(value & 0xff);
+                value >>= 8;
+            }
+            return bytes;
         }
     }
 
     public abstract class BigEndianAssembler : Assembler
     {
-        protected BigEndianAssembler(Tokenizer tokenizer) : base(tokenizer) { }
+        protected BigEndianAssembler(Language.Tokenizer tokenizer, int addressChanged = 16) : base(tokenizer, addressChanged) { }
 
-        protected override byte[] ToBytes(int value)
+        protected override byte[] ToBytes(int value, int size)
         {
-            return new[]
-            {
-                (byte)((value >> 8) & 0xff),
-                (byte)(value & 0xff)
-            };
+            var bytes = new byte[size];
+            for (var i = 0; i < size; ++i) {
+                bytes[size - i - 1] = (byte)(value & 0xff);
+                value >>= 8;
+            }
+            return bytes;
         }
     }
 }

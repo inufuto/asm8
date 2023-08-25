@@ -22,9 +22,9 @@ namespace Inu.Linker
                 tailAddress = minAddress - 1;
             }
 
-            public void PrintRange(TextWriter stream)
+            public void PrintRange(TextWriter stream, int length)
             {
-                stream.Write(Linker.ToHex(MinAddress) + '-' + Linker.ToHex(tailAddress));
+                stream.Write(Linker.ToHex(MinAddress, length) + '-' + Linker.ToHex(tailAddress, length));
             }
 
             public void Expand()
@@ -73,13 +73,6 @@ namespace Inu.Linker
 
         public int FixedAddress(int address)
         {
-            //foreach (var element in elements) {
-            //    if (element.MaxAddress == null || address <= element.MaxAddress) {
-            //        return address + element.MinAddress;
-            //    }
-            //    Debug.Assert(element.Size != null);
-            //    address -= element.Size.Value;
-            //}
             address += MinAddress;
             return address;
         }
@@ -119,11 +112,11 @@ namespace Inu.Linker
             Bytes[offset] = b;
         }
 
-        public void WriteWord(int address, byte[] bytes)
+        public void WriteBytes(int address, byte[] bytes)
         {
-            Debug.Assert(bytes.Length == 2);
-            WriteByte(address, bytes[0]);
-            WriteByte(address + 1, bytes[1]);
+            foreach (var b in bytes) {
+                WriteByte(address++, b);
+            }
         }
 
         public void Fill()
@@ -135,14 +128,14 @@ namespace Inu.Linker
             }
         }
 
-        public void PrintRanges(StreamWriter stream)
+        public void PrintRanges(StreamWriter stream, int length)
         {
             var index = 0;
             foreach (var element in elements) {
                 if (index > 0) {
                     stream.Write(',');
                 }
-                element.PrintRange(stream);
+                element.PrintRange(stream, length);
                 ++index;
             }
         }

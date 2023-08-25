@@ -2,13 +2,14 @@
 {
     internal class BigEndianLinker : Linker
     {
-        protected override byte[] ToBytes(int value)
+        protected override byte[] ToBytes(int value, int size)
         {
-            return new[]
-            {
-                (byte)((value >> 8) & 0xff),
-                (byte)(value & 0xff)
-            };
+            var bytes = new byte[size];
+            for (var i = 0; i < size; ++i) {
+                bytes[size - 1 - i] = (byte)(value & 0xff);
+                value >>= 8;
+            }
+            return bytes;
         }
     }
 }

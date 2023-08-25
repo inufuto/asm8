@@ -12,18 +12,16 @@ namespace Inu.Assembler
         public const string Extension = ".obj";
 
         public string? Name { get; private set; }
-        //public readonly Dictionary<int, string> Names = new Dictionary<int, string>();
-        public readonly Segment[] Segments = { new Segment(AddressType.Code), new Segment(AddressType.Data), new Segment(AddressType.ZeroPage) };
-        public readonly Dictionary<int, Symbol> Symbols = new Dictionary<int, Symbol>();
-        public readonly Dictionary<Address, Address> AddressUsages = new Dictionary<Address, Address>();
-
+        public readonly Segment[] Segments = { new(AddressType.Code), new(AddressType.Data), new(AddressType.ZeroPage) };
+        public readonly Dictionary<int, Symbol> Symbols = new();
+        public readonly Dictionary<Address, Address> AddressUsages = new();
 
         public Object(string? fileName)
         {
             Name = Path.GetFileName(fileName);
         }
 
-        public Object() : this(null) { }
+        public Object(int addressBitCount = 16) : this(null) { }
 
 
         public void Save(string fileName)
@@ -37,7 +35,7 @@ namespace Inu.Assembler
         {
             stream.WriteWord(Version);
 
-            foreach (Segment segment in Segments) {
+            foreach (var segment in Segments) {
                 segment.Write(stream);
             }
 
@@ -51,8 +49,7 @@ namespace Inu.Assembler
             var ids = publicIds.Union(externalIds).ToHashSet();
 
             stream.WriteWord(ids.Count);
-            foreach (var symbol in ids.Select(id => Symbols[id]))
-            {
+            foreach (var symbol in ids.Select(id => Symbols[id])) {
                 symbol.Write(stream);
             }
 
@@ -74,7 +71,7 @@ namespace Inu.Assembler
         {
             stream.ReadWord(); // version
 
-            foreach (Segment segment in Segments) {
+            foreach (var segment in Segments) {
                 segment.Read(stream);
             }
 

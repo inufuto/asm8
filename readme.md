@@ -15,6 +15,7 @@ This repository contains following Visual Studio Solutions:
 |Asm87.sln|assembler for μCOM87(μPD7800~7806)|
 |Asm99.sln|assembler for TMS9900|
 |Asm86.sln|assembler for 8086|
+|Asm62.sln|assembler for SC62015|
 |LinkLE.sln|linker for little endian CPU|
 |LinkBE.sln|linker for big endian CPU|
 |Lib8.sln|librarian|

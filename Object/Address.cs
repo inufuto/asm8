@@ -7,13 +7,14 @@ namespace Inu.Assembler
 {
     public enum AddressType
     {
-        Code, Data, ZeroPage,
+        Code = 0, Data = 1, ZeroPage = 2,
         Undefined = -1, Const = -2, External = -3
     }
 
     public enum AddressPart
     {
-        Word, LowByte, HighByte
+        Word, LowByte, HighByte,
+        TByte
     }
 
     public class Address : IComparable<Address>
@@ -43,8 +44,7 @@ namespace Inu.Assembler
         }
 
         public Address(AddressType type, int value, int? id = null, AddressPart part = AddressPart.Word)
-            : this(type, value, false, id, part)
-        { }
+            : this(type, value, false, id, part) { }
 
         private static bool IsExternal(AddressType type)
         {
@@ -77,9 +77,9 @@ namespace Inu.Assembler
         public bool IsByte()
         {
             if (IsConst()) {
-                return Value >= 0 && Value < 0x100;
+                return Value is >= 0 and < 0x100;
             }
-            return Part == AddressPart.HighByte || Part == AddressPart.LowByte;
+            return Part is AddressPart.HighByte or AddressPart.LowByte;
         }
 
 
@@ -155,15 +155,20 @@ namespace Inu.Assembler
             if (left.Type == AddressType.Const && right.Type == AddressType.Const)
                 return true;
 
-            switch (operatorId) {
-                case '+':
-                    return left.Type == AddressType.Const || right.Type == AddressType.Const;
-                case '-':
-                    return right.Type == AddressType.Const ||
-                           (left.Type == AddressType.Code && right.Type == AddressType.Code ||
-                            left.Type == AddressType.Data && right.Type == AddressType.Data);
-            }
-            return false;
+            return operatorId switch
+            {
+                '+' => left.Type == AddressType.Const || right.Type == AddressType.Const,
+                '-' => right.Type == AddressType.Const ||
+                       (left.Type == AddressType.Code && right.Type == AddressType.Code ||
+                        left.Type == AddressType.Data && right.Type == AddressType.Data),
+                _ => false
+            };
+        }
+
+        public Address PartOf(AddressPart newPart)
+        {
+            Debug.Assert(Type != AddressType.Const);
+            return new Address(Type, Value, Id, newPart);
         }
     }
 }
