@@ -989,8 +989,8 @@ namespace Inu.Assembler.I8086
                 { Keyword.MOVSW,a=>a.InherentInstruction(0b10100101)},
                 { Keyword.LODSB,a=>a.InherentInstruction(0b10101100)},
                 { Keyword.LODSW,a=>a.InherentInstruction(0b10101101)},
-                { Keyword.STOSB,a=>a.InherentInstruction(0b10101100)},
-                { Keyword.STOSW,a=>a.InherentInstruction(0b10101101)},
+                { Keyword.STOSB,a=>a.InherentInstruction(0b10101010)},
+                { Keyword.STOSW,a=>a.InherentInstruction(0b10101011)},
             };
             if (!(LastToken is ReservedWord reservedWord)) return false;
             if (!actions.TryGetValue(reservedWord.Id, out var func)) return false;
@@ -1520,8 +1520,8 @@ namespace Inu.Assembler.I8086
             { Keyword.SCASW,a=>a.InherentInstruction(0b10101111)},
             { Keyword.LODSB,a=>a.InherentInstruction(0b10101100)},
             { Keyword.LODSW,a=>a.InherentInstruction(0b10101101)},
-            { Keyword.STOSB,a=>a.InherentInstruction(0b10101100)},
-            { Keyword.STOSW,a=>a.InherentInstruction(0b10101101)},
+            { Keyword.STOSB,a=>a.InherentInstruction(0b10101010)},
+            { Keyword.STOSW,a=>a.InherentInstruction(0b10101011)},
             { Keyword.REP,a=>a.RepeatInstruction()},
             { Keyword.REPE,a=>a.RepeatConditionInstruction(1)},
             { Keyword.REPNE,a=>a.RepeatConditionInstruction(0)},
