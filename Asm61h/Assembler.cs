@@ -993,36 +993,39 @@ internal class Assembler : Inu.Assembler.LittleEndianAssembler
             var condition = ParseCondition();
             if (condition != null) {
                 AcceptReservedWord(',');
-                {
-                    var addressToken = LastToken;
-                    var address = Expression();
-                    if (address != null) {
-                        RelativeOffset(addressToken, address, out var offset);
-                        WriteByte(0xb0 | condition.Value);
-                        WriteByte(Offset(offset));
-                        return;
-                    }
-                }
+                if (WriteCode(0xb0 | condition.Value)) return;
                 ShowSyntaxError(LastToken);
                 return;
             }
         }
+        if (WriteCode(0xb7)) return;
+        ShowSyntaxError(LastToken);
+        return;
+
+        bool WriteCode(int code)
         {
             var addressToken = LastToken;
             var address = Expression();
-            if (address != null) {
-                RelativeOffset(addressToken, address, out var offset);
-                WriteByte(0xb7);
-                WriteByte(Offset(offset));
-                return;
-            }
+            if (address == null) return false;
+            Jump(code, address, addressToken);
+            return true;
         }
-        ShowSyntaxError(LastToken);
+    }
 
-        int Offset(int offset)
-        {
-            ++offset;
-            return offset < 0 ? (0x80 | -offset) : offset;
+    private void Jump(int code, Address address, Token addressToken)
+    {
+        RelativeOffset(addressToken, address, out var offset);
+        ++offset;
+        if (Math.Abs(offset) < 0x80) {
+            if (offset < 0) {
+                offset = 0x80 | -offset;
+            }
+            WriteByte(code);
+            WriteByte(offset);
+        }
+        else {
+            WriteByte(code & ~0x80);
+            WriteWord(addressToken, address);
         }
     }
 
@@ -1107,6 +1110,172 @@ internal class Assembler : Inu.Assembler.LittleEndianAssembler
             }
         }
         ShowSyntaxError(LastToken);
+    }
+
+    private void ConditionalJump(int? condition, Address address)
+    {
+        if (condition != null) {
+            Jump(0xb0 | condition.Value, address, LastToken);
+        }
+        else {
+            Jump(0xb7, address, LastToken);
+        }
+    }
+
+
+    private void NegatedConditionalJump(Address address)
+    {
+        var condition = ParseCondition();
+        NegatedConditionalJump(condition, address);
+    }
+
+    private void NegatedConditionalJump(int? condition, Address address)
+    {
+        if (condition != null) {
+            switch (condition.Value) {
+                case 0x00: // Z
+                    NextToken();
+                    Jump(0xb4, address, LastToken);
+                    return;
+                case 0x01: // NC
+                    NextToken();
+                    Jump(0xb5, address, LastToken);
+                    return;
+                case 0x02: // LZ
+                    NextToken();
+                    Jump(0xb6, address, LastToken);
+                    return;
+                case 0x03: // UZ
+                    Skip(0xb3); // UZ
+                    return;
+                case 0x04: // NZ
+                    NextToken();
+                    Jump(0xb0, address, LastToken);
+                    return;
+                case 0x05: // C
+                    NextToken();
+                    Jump(0xb1, address, LastToken);
+                    return;
+                case 0x06: // NLZ
+                    NextToken();
+                    Jump(0xb2, address, LastToken);
+                    return;
+            }
+        }
+        ShowError(LastToken.Position, "Missing Condition.");
+        return;
+
+        void Skip(int code)
+        {
+            NextToken();
+            WriteByte(code);
+            RelativeOffset(LastToken, address, out var offset);
+            offset += 2;
+            WriteByte(Math.Abs(offset) < 0x80 ? 3 : 4);
+            this.Jump(0xb7, address, LastToken);
+        }
+    }
+
+    private void UnconditionalJump(Address address)
+    {
+        Jump(0xb7, address, LastToken);
+    }
+
+
+    private void StartIf(IfBlock block)
+    {
+        var address = SymbolAddress(block.ElseId);
+        NegatedConditionalJump(address);
+    }
+
+
+    private void IfStatement()
+    {
+        var block = NewIfBlock();
+        StartIf(block);
+    }
+
+    private void EndIfStatement()
+    {
+        if (LastBlock() is IfBlock block) {
+            DefineSymbol(block.ElseId <= 0 ? block.EndId : block.ConsumeElse(), CurrentAddress);
+            EndBlock();
+        }
+        else {
+            ShowNoStatementError(LastToken, "IF");
+        }
+        NextToken();
+    }
+
+    private void ElseStatement()
+    {
+        if (LastBlock() is IfBlock block) {
+            if (block.ElseId <= 0) {
+                ShowError(LastToken.Position, "Multiple ELSE statement.");
+            }
+
+            var address = SymbolAddress(block.EndId);
+            UnconditionalJump(address);
+            DefineSymbol(block.ConsumeElse(), CurrentAddress);
+        }
+        else {
+            ShowNoStatementError(LastToken, "IF");
+        }
+    }
+
+    private void ElseIfStatement()
+    {
+        ElseStatement();
+        if (LastBlock() is not IfBlock block) { return; }
+        Debug.Assert(block.ElseId == Block.InvalidId);
+        block.ElseId = AutoLabel();
+        StartIf(block);
+    }
+
+    private void DoStatement()
+    {
+        var block = NewWhileBlock();
+        DefineSymbol(block.BeginId, CurrentAddress);
+        NextToken();
+    }
+
+    private void WhileStatement()
+    {
+        if (LastBlock() is not WhileBlock block) {
+            ShowNoStatementError(LastToken, "WHILE");
+            NextToken();
+            return;
+        }
+
+        var repeatAddress = SymbolAddress(block.RepeatId);
+        var condition = ParseCondition();
+        var next = condition != null ? 0 : 1;
+        if (repeatAddress.Type == CurrentSegment.Type && (RelativeOffset(repeatAddress)) <= next) {
+            var address = SymbolAddress(block.BeginId);
+            ConditionalJump(condition, address);
+            block.EraseEndId();
+        }
+        else {
+            var address = SymbolAddress(block.EndId);
+            NegatedConditionalJump(condition, address);
+        }
+    }
+
+    private void WEndStatement()
+    {
+        if (LastBlock() is not WhileBlock block) {
+            ShowNoStatementError(LastToken, "WHILE");
+        }
+        else {
+            if (block.EndId > 0) {
+                DefineSymbol(block.RepeatId, CurrentAddress);
+                var address = SymbolAddress(block.BeginId);
+                UnconditionalJump(address);
+                DefineSymbol(block.EndId, CurrentAddress);
+            }
+            EndBlock();
+        }
+        NextToken();
     }
 
 
@@ -1254,9 +1423,15 @@ internal class Assembler : Inu.Assembler.LittleEndianAssembler
         {Keyword.DIUM, a=>{a.SingleRegisterOnly(0xda, 0x20, true);}},
         {Keyword.BYDM, a=>{a.SingleRegisterOnly(0xda, 0x40, true);}},
         {Keyword.BYUM, a=>{a.SingleRegisterOnly(0xda, 0x60, true);}},
+        //
+        {Inu.Assembler.Keyword.If, a=>{a.IfStatement(); }},
+        {Inu.Assembler.Keyword.Else, a=>{a.ElseStatement(); }},
+        {Inu.Assembler.Keyword.EndIf,a=>{a.EndIfStatement(); }},
+        {Inu.Assembler.Keyword.ElseIf, a=>{a.ElseIfStatement(); }},
+        {Inu.Assembler.Keyword.Do, a=>{a.DoStatement(); }},
+        {Inu.Assembler.Keyword.While, a=>{a.WhileStatement(); }},
+        {Inu.Assembler.Keyword.WEnd, a=>{a.WEndStatement(); }},
     };
-
-
 
     protected override bool Instruction()
     {
