@@ -760,9 +760,9 @@ internal class Assembler : Inu.Assembler.LittleEndianAssembler
             if (LastToken.IsReservedWord('(')) {
                 NextToken();
                 if (Indirect(0x91, leftRegister.Value)) return;
-                if (RightOffset(0xa8, leftRegister.Value)) return;
+                if (RightRegisterOffset(0xa8, leftRegister.Value)) return;
             }
-            if (ImmediateWord(0xd1, leftRegister.Value)) return;
+            else if (ImmediateWord(0xd1, leftRegister.Value)) return;
         }
         ShowSyntaxError(LastToken);
     }
