@@ -228,7 +228,12 @@ internal class Assembler : Inu.Assembler.LittleEndianAssembler
         var count = Expression();
         if (count != null) {
             if (count.IsConst()) {
-                return ((count.Value - 1) & 0x07) << 5;
+                var value = count.Value;
+                if (value is >= 2 and <= 8) {
+                    return ((value - 1) & 0x07) << 5;
+                }
+                ShowError(token.Position, "Out of range:" + value);
+                return 0;
             }
             ShowAddressUsageError(token);
         }
