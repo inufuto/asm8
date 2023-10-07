@@ -105,6 +105,8 @@ Properties
 /Asm68/bin
 /Asm87/bin
 /Asm99/bin
-/Asm61h/.vs
-/Asm61h/bin
+/Asm61h/.vs/Asm61h
+/Asm61h/bin/Debug/net6.0
 /Asm61h/obj
+/Asm61h/bin/Release/net6.0
+/Asm61h/.vs/ProjectEvaluation

@@ -39,7 +39,7 @@ namespace Inu.Language
 
         public void ShowSyntaxError(Token token)
         {
-            ShowError(token.Position, "Syntax error: " + token.ToString());
+            ShowError(token.Position, "Syntax error: " + token);
         }
 
         public void ShowSyntaxError()
