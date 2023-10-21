@@ -428,6 +428,7 @@ namespace Inu.Linker
                 ".T64" => new T64File(fileName),
                 ".C10" => new C10File(fileName),
                 ".S" => new SRecordFile(fileName),
+                ".PBF"=>new PbFile(fileName),
                 _ => new BinFile(fileName)
             };
         }

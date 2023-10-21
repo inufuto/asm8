@@ -222,8 +222,8 @@ namespace Inu.Language
         }
         protected virtual bool IsIdentifierHead(char c)
         {
-            char upper = char.ToUpper(c);
-            return (upper >= 'A' && upper <= 'Z') || c == '_';
+            var upper = char.ToUpper(c);
+            return upper is >= 'A' and <= 'Z' || c == '_';
         }
         protected virtual bool IsIdentifierElement(char c)
         {

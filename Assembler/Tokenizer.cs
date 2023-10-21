@@ -1,5 +1,4 @@
-﻿using System;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 using Inu.Language;
@@ -27,7 +26,7 @@ namespace Inu.Assembler
         }
         protected override bool IsIdentifierHead(char c)
         {
-            return base.IsIdentifierHead(c) || "$.?@".Contains(c);
+            return base.IsIdentifierHead(c) || ".?@".Contains(c);
         }
         protected override bool IsIdentifierElement(char c)
         {
@@ -56,14 +55,19 @@ namespace Inu.Assembler
             return c == HexValueHead;
         }
 
-        protected sealed override int ReadNumericValue()
+        protected override int ReadNumericValue()
         {
             if (!IsHexValueHead(LastChar)) return ReadHexValue(out var value) ? value : ReadDecValue();
             NextChar();
-            var chars = new StringBuilder();
+            return ReadHexValue();
+        }
 
+        protected int ReadHexValue()
+        {
+            var chars = new StringBuilder();
             var upper = char.ToUpper(LastChar);
-            while (IsHexDigit(upper)) {
+            while (IsHexDigit(upper))
+            {
                 chars.Append(upper);
                 NextChar();
                 upper = char.ToUpper(LastChar);
