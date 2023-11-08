@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Xml.Linq;
 
 namespace Inu.Assembler
 {
@@ -42,6 +43,7 @@ namespace Inu.Assembler
                 else {
                     name = "@" + id;
                 }
+
                 @object.Symbols[id] = new Symbol(Pass, id, name, address);
                 return true;
             }
@@ -65,7 +67,9 @@ namespace Inu.Assembler
 
         protected Symbol? FindSymbol(int id)
         {
-            return @object.Symbols.TryGetValue(id, out var symbol) ? symbol : null;
+            if (!@object.Symbols.TryGetValue(id, out var symbol)) return null;
+            symbol.Address.Parenthesized = false;
+            return symbol;
         }
 
         protected Symbol? FindSymbol(Identifier identifier)
