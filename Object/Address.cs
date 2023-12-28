@@ -14,12 +14,21 @@ namespace Inu.Assembler
     public enum AddressPart
     {
         Word, LowByte, HighByte,
-        TByte
+        TripleByte, RevertedWord
     }
 
     public class Address : IComparable<Address>
     {
         public const int RelativeBit = 0x80;
+
+        private static int LowByte(int value)
+        {
+            return value & 0xff;
+        }
+        private static int HighByte(int value)
+        {
+            return (value >> 8) & 0xff;
+        }
 
         public readonly AddressType Type;
         public readonly bool Relative;
@@ -140,14 +149,15 @@ namespace Inu.Assembler
             return compare;
         }
 
-        public Address? Low()
+        public Address Low()
         {
-            return Type == AddressType.Const ? new Address(Type, Value & 0xff) : new Address(Type, Value, Id, AddressPart.LowByte);
+            return Type == AddressType.Const ? new Address(Type, LowByte(Value)) : new Address(Type, Value, Id, AddressPart.LowByte);
         }
 
-        public Address? High()
+
+        public Address High()
         {
-            return Type == AddressType.Const ? new Address(Type, (Value >> 8) & 0xff) : new Address(Type, Value, Id, AddressPart.HighByte);
+            return Type == AddressType.Const ? new Address(Type, HighByte(Value)) : new Address(Type, Value, Id, AddressPart.HighByte);
         }
 
         public static bool IsOperationAvailable(int operatorId, Address left, Address right)
@@ -169,6 +179,11 @@ namespace Inu.Assembler
         {
             Debug.Assert(Type != AddressType.Const);
             return new Address(Type, Value, Id, newPart);
+        }
+
+        public Address Revert()
+        {
+            return Type == AddressType.Const ? new Address(Type, (LowByte(Value) << 8) | HighByte(Value)) : new Address(Type, Value, Id, AddressPart.RevertedWord);
         }
     }
 }

@@ -240,7 +240,7 @@ namespace Inu.Linker
                     }
                     segments[location.Type].WriteByte(location.Value, (byte)((addedValue >> 8) & 0xff));
                     break;
-                case AddressPart.TByte:
+                case AddressPart.TripleByte:
                     if (relative) {
                         if (addedValue >= 0x8000) {
                             addedValue = -(0x8000 - addedValue);
@@ -248,6 +248,14 @@ namespace Inu.Linker
                         addedValue -= location.Value + 3;
                     }
                     segments[location.Type].WriteBytes(location.Value, ToBytes(addedValue, 3));
+                    break;
+                case AddressPart.RevertedWord:
+                    if (relative) {
+                        addedValue -= location.Value + 2;
+                    }
+                    var bytes = ToBytes(addedValue, 2);
+                    Array.Reverse(bytes);
+                    segments[location.Type].WriteBytes(location.Value, bytes);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();

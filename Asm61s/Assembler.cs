@@ -4,7 +4,7 @@ using System.Diagnostics;
 
 namespace Inu.Assembler.SC61860;
 
-internal class Assembler() : BigEndianAssembler(new Tokenizer())
+internal class Assembler() : LittleEndianAssembler(new Tokenizer())
 {
     public override bool ZeroPageAvailable => true;
 
@@ -31,7 +31,7 @@ internal class Assembler() : BigEndianAssembler(new Tokenizer())
         var value = Expression();
         if (value != null) {
             WriteByte(code);
-            WriteWord(valueToken, value);
+            WriteWord(valueToken, value.Revert());
             return;
         }
         ShowSyntaxError(LastToken);

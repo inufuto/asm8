@@ -58,7 +58,7 @@ namespace Inu.Assembler.Sc62015
         }
 
         public override bool ZeroPageAvailable => true;
-        public override AddressPart PointerAddressPart => AddressPart.TByte;
+        public override AddressPart PointerAddressPart => AddressPart.TripleByte;
 
         public Assembler() : base(new Tokenizer(), 20) { }
 

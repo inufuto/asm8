@@ -111,7 +111,7 @@ public abstract class Assembler : TokenReader
     protected void WriteByte(Token token, Address value)
     {
         if (value.IsRelocatable() || value.Type == AddressType.External) {
-            if (value.Part == AddressPart.TByte) {
+            if (value.Part == AddressPart.TripleByte) {
                 value = value.PartOf(AddressPart.Word);
             }
             if (value.Part == AddressPart.Word) {
@@ -130,10 +130,10 @@ public abstract class Assembler : TokenReader
     protected void WriteWord(Token token, Address value)
     {
         if (value.IsRelocatable() || value.Type == AddressType.External) {
-            if (value.Part == AddressPart.TByte) {
+            if (value.Part == AddressPart.TripleByte) {
                 value = value.PartOf(AddressPart.Word);
             }
-            Debug.Assert(value.Part == AddressPart.Word);
+            Debug.Assert(value.Part is AddressPart.Word or AddressPart.RevertedWord);
             @object.AddressUsages[CurrentAddress] = value;
         }
         else if (!value.IsConst()) {
@@ -356,7 +356,7 @@ public abstract class Assembler : TokenReader
             return null;
         }
 
-        repeat:
+    repeat:
         {
             if (LastToken is ReservedWord operatorToken) {
                 if (Binomials[level].TryGetValue(operatorToken.Id, out var operation)) {
@@ -368,7 +368,7 @@ public abstract class Assembler : TokenReader
                     }
                     if (Address.IsOperationAvailable(operatorToken.Id, left, right)) {
                         var type = left.Type == right.Type ? AddressType.Const : left.Type;
-                            
+
                         var newPart = AddressPart.Word;
                         if (left.Part == AddressPart.LowByte && (right.Part == AddressPart.LowByte || right.Type == AddressType.Const)) {
                             newPart = AddressPart.LowByte;
@@ -376,7 +376,7 @@ public abstract class Assembler : TokenReader
                         if (right.Part == AddressPart.LowByte && (left.Part == AddressPart.LowByte || left.Type == AddressType.Const)) {
                             newPart = AddressPart.LowByte;
                         }
-                            
+
                         left = new Address(type, operation(left.Value, right.Value), left.Id, newPart);
                     }
                     else {
