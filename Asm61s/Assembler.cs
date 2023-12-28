@@ -325,7 +325,7 @@ internal class Assembler() : BigEndianAssembler(new Tokenizer())
                     return;
                 case Keyword.NC:
                     NextToken();
-                    Jump(0b00101100, 0b00111111, LastToken, address); // C
+                    Jump(0b00111010, 0b00111111, LastToken, address); // C
                     return;
             }
         }
