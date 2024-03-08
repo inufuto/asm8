@@ -4,7 +4,7 @@ namespace Inu.Assembler.Mos6502
 {
     internal class Keyword : Inu.Assembler.Keyword
     {
-        public new const int MinId = NextId;
+        public new const int MinId = Inu.Assembler.Keyword.NextId;
 
         public const int Cc = MinId + 0;
         public const int Cs = MinId + 1;
@@ -73,6 +73,7 @@ namespace Inu.Assembler.Mos6502
         public const int Tya = MinId + 64;
         public const int X = MinId + 65;
         public const int Y = MinId + 66;
+        protected new const int NextId = MinId + 67;
 
         public new static readonly Dictionary<int, string> Words = new Dictionary<int, string>()
         {
