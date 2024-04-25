@@ -369,7 +369,7 @@ namespace Inu.Assembler
                         }
                         if (Address.IsOperationAvailable(operatorToken.Id, left, right)) {
                             var type = left.Type == right.Type ? AddressType.Const : left.Type;
-                            
+
                             var newPart = AddressPart.Word;
                             if (left.Part == AddressPart.LowByte && (right.Part == AddressPart.LowByte || right.Type == AddressType.Const)) {
                                 newPart = AddressPart.LowByte;
@@ -377,7 +377,7 @@ namespace Inu.Assembler
                             if (right.Part == AddressPart.LowByte && (left.Part == AddressPart.LowByte || left.Type == AddressType.Const)) {
                                 newPart = AddressPart.LowByte;
                             }
-                            
+
                             left = new Address(type, operation(left.Value, right.Value), left.Id, newPart);
                         }
                         else {
@@ -612,9 +612,21 @@ namespace Inu.Assembler
         protected int RelativeOffset(Address address)
         {
             const int instructionLength = 2;
+            return RelativeOffset(address, instructionLength);
+        }
+
+        protected int RelativeOffset(Address address, int instructionLength)
+        {
             return address.Value - (CurrentAddress.Value + instructionLength);
         }
+
         protected bool RelativeOffset(out Address address, out int offset)
+        {
+            const int instructionLength = 2;
+            return RelativeOffset(instructionLength, out address, out offset);
+        }
+
+        protected bool RelativeOffset(int instructionLength, out Address address, out int offset)
         {
             offset = 0;
             var operand = LastToken;
@@ -625,10 +637,16 @@ namespace Inu.Assembler
                 return false;
             }
             address = expression;
-            return RelativeOffset(operand, address, out offset);
+            return RelativeOffset(operand, address, instructionLength, out offset);
         }
 
         protected bool RelativeOffset(Token token, Address address, out int offset)
+        {
+            const int instructionLength = 2;
+            return RelativeOffset(token, address, instructionLength, out offset);
+        }
+
+        protected bool RelativeOffset(Token token, Address address, int instructionLength, out int offset)
         {
             offset = 0;
             switch (address.Type) {
@@ -643,7 +661,7 @@ namespace Inu.Assembler
                 case AddressType.ZeroPage:
                 default:
                     if (address.Type == CurrentSegment.Type) {
-                        offset = RelativeOffset(address);
+                        offset = RelativeOffset(address, instructionLength);
                     }
                     else {
                         ShowAddressUsageError(token);

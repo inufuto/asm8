@@ -858,7 +858,7 @@ namespace Inu.Assembler.Mc6809
 
                 if (value.IsConst()) {
                     var constValue = value.Value;
-                    if (constValue is > 0x00 and <= 0xff) {
+                    if (constValue is >= 0x00 and <= 0xff) {
                         // direct mode
                         WriteByte(instruction | directModeBits);
                         WriteByte(constValue);
