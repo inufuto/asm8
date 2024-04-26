@@ -29,20 +29,19 @@ namespace Inu.Linker
         public const int Success = 0;
 
         private static readonly AddressType[] SegmentAddressTypes = { AddressType.Code, AddressType.Data, AddressType.ZeroPage };
-        private static readonly Dictionary<AddressType, string> SegmentNames = new Dictionary<AddressType, string>()
+        private static readonly Dictionary<AddressType, string> SegmentNames = new()
         {
             {AddressType.Code,"CSEG"},
             {AddressType.Data,"DSEG"},
             {AddressType.ZeroPage,"ZSEG"},
         };
 
-        //private readonly Dictionary<AddressType, List<Segment>> addresses = new Dictionary<AddressType, List<Segment>>();
-        private readonly Dictionary<AddressType, Segment> segments = new Dictionary<AddressType, Segment>();
+        private readonly Dictionary<AddressType, Segment> segments = new();
         private string? targetName;
-        private readonly StringTable identifiers = new StringTable(1);
-        private readonly Dictionary<int, Symbol> symbols = new Dictionary<int, Symbol>();
-        private readonly SortedDictionary<Address, External> externals = new SortedDictionary<Address, External>();
-        private readonly List<string> errors = new List<string>();
+        private readonly StringTable identifiers = new(1);
+        private readonly Dictionary<int, Symbol> symbols = new();
+        private readonly SortedDictionary<Address, External> externals = new();
+        private readonly List<string> errors = new();
         private int hexDigitCount = 4;
 
         protected Linker()
@@ -52,7 +51,7 @@ namespace Inu.Linker
             }
         }
 
-        public int Main(NormalArgument normalArgument)
+        public int Main(NormalArgument normalArgument, bool makeDataSegment)
         {
             try {
                 var args = normalArgument.Values;
@@ -126,7 +125,7 @@ namespace Inu.Linker
                 if (errors.Count > 0)
                     return Failure;
 
-                SaveTargetFile(targetName);
+                SaveTargetFile(targetName, makeDataSegment);
 
                 var symbolFileName = directory + Path.DirectorySeparatorChar +
                                      Path.GetFileNameWithoutExtension(targetName) + ".symbols.txt";
@@ -333,10 +332,10 @@ namespace Inu.Linker
         }
 
 
-        private void SaveTargetFile(string fileName)
+        private void SaveTargetFile(string fileName, bool makeDataSegment)
         {
             var ext = Path.GetExtension(fileName).ToUpper();
-            SaveTargetFile(fileName, ext);
+            SaveTargetFile(fileName, ext, makeDataSegment);
         }
 
         private static void PrintColumn(TextWriter writer, string s, int maxLength)
@@ -403,13 +402,20 @@ namespace Inu.Linker
             }
         }
 
-        protected void SaveTargetFile(string fileName, string ext)
+        protected void SaveTargetFile(string fileName, string ext, bool makeDataSegment)
         {
-            var targetFile = ToTargetFile(fileName, ext);
-            var segment = segments[0];
-            segment.Fill();
-            targetFile.Write(segment.MinAddress, segment.Bytes.ToArray());
-            targetFile.Dispose();
+            {
+                var codeSegment = segments[AddressType.Code];
+                codeSegment.Fill();
+                using var targetFile = ToTargetFile(fileName, ext);
+                targetFile.Write(codeSegment.MinAddress, codeSegment.Bytes.ToArray());
+            }
+            if (makeDataSegment) {
+                var dataSegment = segments[AddressType.Data];
+                dataSegment.Fill();
+                using var targetFile = ToTargetFile(Path.GetFileNameWithoutExtension(fileName)  + ".dseg."+ ext, ext);
+                targetFile.Write(dataSegment.MinAddress, dataSegment.Bytes.ToArray());
+            }
         }
 
         protected virtual TargetFile ToTargetFile(string fileName, string ext)
@@ -428,7 +434,7 @@ namespace Inu.Linker
                 ".T64" => new T64File(fileName),
                 ".C10" => new C10File(fileName),
                 ".S" => new SRecordFile(fileName),
-                ".PBF"=>new PbFile(fileName),
+                ".PBF" => new PbFile(fileName),
                 _ => new BinFile(fileName)
             };
         }

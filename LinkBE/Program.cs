@@ -6,8 +6,15 @@ namespace Inu.Linker
     {
         public static int Main(string[] args)
         {
-            var normalArgument = new NormalArgument(args);
-            return new BigEndianLinker().Main(normalArgument);
+            var makeDataSegment = false;
+            var normalArgument = new NormalArgument(args, (option, value) =>
+            {
+                if (option == "DSEG") {
+                    makeDataSegment = true;
+                }
+                return false;
+            });
+            return new BigEndianLinker().Main(normalArgument, makeDataSegment);
         }
     }
 }
