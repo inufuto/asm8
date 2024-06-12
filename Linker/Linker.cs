@@ -413,7 +413,7 @@ namespace Inu.Linker
             if (makeDataSegment) {
                 var dataSegment = segments[AddressType.Data];
                 dataSegment.Fill();
-                using var targetFile = ToTargetFile(Path.GetFileNameWithoutExtension(fileName)  + ".dseg."+ ext, ext);
+                using var targetFile = ToTargetFile(Path.GetFileNameWithoutExtension(fileName)  + ".dseg"+ ext, ext);
                 targetFile.Write(dataSegment.MinAddress, dataSegment.Bytes.ToArray());
             }
         }
