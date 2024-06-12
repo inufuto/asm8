@@ -1078,18 +1078,6 @@ namespace Inu.Assembler.I8086
                 WriteByte(highWord);
                 WriteByte(highWord >> 8);
                 return true;
-                // far
-                WriteByte(0b10011010);
-                //WriteWord(operandToken, operand);
-                //var highWord = (operand.Value & 0xf0000) >> 4;
-                //WriteByte(highWord);
-                //WriteByte(highWord >> 8);
-                //return true;
-                Debug.Assert(operand != null);
-                WriteWord(operandToken, operand);
-                WriteByte(highWord);
-                WriteByte(highWord >> 8);
-                return true;
             }
             // near
             WriteByte(0b11101000);
