@@ -95,7 +95,7 @@ namespace Inu.Assembler
 
         protected Address SymbolAddress(Identifier identifier)
         {
-            Address address = SymbolAddress(identifier.Id);
+            var address = SymbolAddress(identifier.Id);
             if (Pass > 1 && address.IsUndefined()) {
                 ShowUndefinedError(identifier);
             }
@@ -443,7 +443,7 @@ namespace Inu.Assembler
         {
             Debug.Assert(LastToken != null);
             do {
-                Token token = NextToken();
+                var token = NextToken();
                 if (token is Identifier label) {
                     NextToken();
                     DefineSymbol(label, new Address(type, 0, label.Id, PointerAddressPart));
@@ -457,7 +457,7 @@ namespace Inu.Assembler
         private bool ByteStorageOperand()
         {
             Debug.Assert(LastToken != null);
-            Token token = LastToken;
+            var token = LastToken;
             if (token is StringValue stringValue) {
                 var s = stringValue.ToString();
                 Debug.Assert(s != null);
@@ -470,7 +470,7 @@ namespace Inu.Assembler
             var value = Expression();
             if (value == null)
                 return false;
-            WriteByte(value.Value);
+            WriteByte(token, value);
             return true;
         }
         private bool WordStorageOperand()
