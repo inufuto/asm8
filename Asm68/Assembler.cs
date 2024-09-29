@@ -208,10 +208,10 @@ namespace Inu.Assembler.Mc6800
             var reservedWord = LastToken as ReservedWord;
             Debug.Assert(reservedWord != null);
             var id = reservedWord.Id;
-            if (!BranchElements.TryGetValue(id, out byte instruction)) { return false; }
+            if (!BranchElements.TryGetValue(id, out var instruction)) { return false; }
             NextToken();
 
-            if (RelativeOffset(out var address, out int offset)) {
+            if (RelativeOffset(out var address, out var offset)) {
                 WriteByte(instruction);
                 WriteByte(offset);
                 return true;

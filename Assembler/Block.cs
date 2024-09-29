@@ -19,7 +19,7 @@ namespace Inu.Assembler
         }
         public int ConsumeElse()
         {
-            int id = ElseId;
+            var id = ElseId;
             Debug.Assert(id > 0);
             ElseId = InvalidId;
             return id;

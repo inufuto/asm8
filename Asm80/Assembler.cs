@@ -554,7 +554,7 @@ namespace Inu.Assembler.Z80
          */
         private void LoadInstruction()
         {
-            Token leftToken = NextToken();
+            var leftToken = NextToken();
             if (
                 LoadToMemoryInstruction() ||
                 LoadRegisterInstruction() ||

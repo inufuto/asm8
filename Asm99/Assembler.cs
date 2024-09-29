@@ -22,7 +22,7 @@ namespace Inu.Assembler.Tms99
 
         protected override bool Instruction()
         {
-            Dictionary<int, Action<Assembler>> Actions = new Dictionary<int, Action<Assembler>>
+            var actions = new Dictionary<int, Action<Assembler>>
             {
                 {Inu.Assembler.Keyword.If, assembler=>assembler.IfStatement()},
                 {Inu.Assembler.Keyword.Else, assembler=>assembler.ElseStatement()},
@@ -34,7 +34,7 @@ namespace Inu.Assembler.Tms99
             };
 
 
-            if (!(LastToken is ReservedWord reservedWord)) {
+            if (LastToken is not ReservedWord reservedWord) {
                 return false;
             }
 
@@ -69,7 +69,7 @@ namespace Inu.Assembler.Tms99
                 return true;
             }
 
-            if (!Actions.TryGetValue(reservedWord.Id, out var action)) {
+            if (!actions.TryGetValue(reservedWord.Id, out var action)) {
                 return false;
             }
             action(this);

@@ -69,25 +69,34 @@ namespace Inu.Language
 
             var position = lastPosition;
             var c = LastChar;
-            if (IsQuotation(c)) {
+            return GetToken(c, position);
+        }
+
+        protected virtual Token GetToken(char c, SourcePosition position)
+        {
+            if (IsQuotation(c))
+            {
                 var s = ReadQuotedString();
                 return new StringValue(position, s);
             }
-            if (IsNumericValueHead(c)) {
+            if (IsNumericValueHead(c))
+            {
                 var value = ReadNumericValue();
                 return new NumericValue(position, value);
             }
             if (IsIdentifierHead(c)) {
                 var word = ReadWord();
                 var id = ReservedWord.ToId(word);
-                if (id > 0) {
+                if (id > 0)
+                {
                     return new ReservedWord(position, id);
                 }
                 return new Identifier(position, word);
             }
             if (IsSequenceHead(c)) {
                 var id = ReadSequence();
-                if (id > 0) {
+                if (id > 0)
+                {
                     return new ReservedWord(position, id);
                 }
             }
@@ -138,7 +147,7 @@ namespace Inu.Language
             } while (LastChar == 0);
             return LastChar;
         }
-        protected void ReturnChar(char c)
+        public void ReturnChar(char c)
         {
             returnedChars.Push(LastChar);
             LastChar = c;
