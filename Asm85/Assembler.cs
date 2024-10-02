@@ -17,6 +17,18 @@ internal class Assembler() : BigEndianAssembler(new Tokenizer())
         ShowError(token.Position, "Invalid register: " + token + index);
     }
 
+    private Address ParseExpressionNotNull()
+    {
+        var token = LastToken;
+        var value = Expression();
+        if (value == null) {
+            ShowSyntaxError(token);
+            return new Address(0);
+        }
+        return value;
+    }
+
+
     private int? ParseConstantExpression()
     {
         var token = LastToken;
@@ -111,64 +123,64 @@ internal class Assembler() : BigEndianAssembler(new Tokenizer())
     }
 
 
-    private int? ParseRegisterFile()
+    private Address? ParseRegisterFile()
     {
         if (!LastToken.IsReservedWord('R')) return null;
         NextToken();
         return ParseRegisterFileIndexNotNull();
     }
 
-    private int ParseRegisterFileNotNull()
+    private Address ParseRegisterFileNotNull()
     {
         var registerFile = ParseRegisterFile();
         if (registerFile == null) {
             ShowSyntaxError();
-            return 1;
+            return new Address(1);
         }
-        return registerFile.Value;
+        return registerFile;
     }
 
-    private int ParseRegisterFileIndexNotNull()
+    private Address ParseRegisterFileIndexNotNull()
     {
         var token = LastToken;
-        var registerFile = ParseConstantExpressionNotNull();
-        if (!IsInRegisterFileRange(registerFile)) {
-            ShowOutOfRange(token, registerFile);
-            return 1;
+        var registerFile = ParseExpressionNotNull();
+        if (registerFile.IsConst() && !IsInRegisterFileRange(registerFile.Value)) {
+            ShowOutOfRange(token, registerFile.Value);
+            return new Address(1);
 
         }
         return registerFile;
     }
 
-    private int? ParseRegisterPairFile()
+    private Address? ParseRegisterPairFile()
     {
         if (!LastToken.IsReservedWord(Keyword.RR)) return null;
         var token = LastToken;
         NextToken();
         var registerPairFileIndex = ParseRegisterPairFileIndexNotNull();
-        if ((registerPairFileIndex & 1) != 0) {
-            ShowInvalidRegister(token, registerPairFileIndex);
+        if (registerPairFileIndex.IsConst() && (registerPairFileIndex.Value & 1) != 0) {
+            ShowInvalidRegister(token, registerPairFileIndex.Value);
         }
         return registerPairFileIndex;
     }
 
-    private int ParseRegisterPairFileNotNull()
+    private Address ParseRegisterPairFileNotNull()
     {
         var registerFile = ParseRegisterPairFile();
         if (registerFile == null) {
             ShowSyntaxError();
-            return 1;
+            return new Address(2);
         }
-        return registerFile.Value;
+        return registerFile;
     }
 
-    private int ParseRegisterPairFileIndexNotNull()
+    private Address ParseRegisterPairFileIndexNotNull()
     {
         var token = LastToken;
-        var registerFile = ParseConstantExpressionNotNull();
-        if (!IsInRegisterFileRange(registerFile)) {
-            ShowOutOfRange(token, registerFile);
-            return 1;
+        var registerFile = ParseExpressionNotNull();
+        if (registerFile.IsConst() && !IsInRegisterFileRange(registerFile.Value)) {
+            ShowOutOfRange(token, registerFile.Value);
+            return new Address(2);
 
         }
         return registerFile;
@@ -236,12 +248,13 @@ internal class Assembler() : BigEndianAssembler(new Tokenizer())
     private void BitSetReset(int memoryOp, int registerOp)
     {
         {
+            var registerToken = LastToken;
             var registerFile = ParseRegisterFile();
             if (registerFile != null) {
                 AcceptReservedWord(',');
                 var bit = ParseBitIndexNotNull();
                 WriteByte(registerOp | bit);
-                WriteByte(registerFile.Value);
+                WriteByte(registerToken, registerFile);
                 return;
             }
         }
@@ -251,15 +264,15 @@ internal class Assembler() : BigEndianAssembler(new Tokenizer())
             if (address != null) {
                 if (LastToken.IsReservedWord('(')) {
                     var registerToken = NextToken();
-                    var registerFile = ParseRegisterFileNotNull();
-                    if (registerFile == 0) {
-                        ShowInvalidRegister(registerToken, registerFile);
+                    var register = ParseRegisterNotNull();
+                    if (register == 0) {
+                        ShowInvalidRegister(registerToken, register);
                     }
                     AcceptReservedWord(')');
                     AcceptReservedWord(',');
                     var bit = ParseBitIndexNotNull();
                     WriteByte(memoryOp);
-                    WriteByte(registerFile << 3 | bit);
+                    WriteByte(register << 3 | bit);
                     WriteByte(addressToken, address);
                 }
                 else {
@@ -288,7 +301,7 @@ internal class Assembler() : BigEndianAssembler(new Tokenizer())
             var bit = ParseBitIndexNotNull();
             WriteByte(0b01001110);
             WriteByte(bit);
-            WriteByte(registerFile);
+            WriteByte(registerToken, registerFile);
         }
         else {
             var registerToken = LastToken;
@@ -299,7 +312,7 @@ internal class Assembler() : BigEndianAssembler(new Tokenizer())
             AcceptReservedWord(Keyword.BF);
             WriteByte(0b01001110);
             WriteByte(0b01000000 | bit);
-            WriteByte(registerFile);
+            WriteByte(registerToken, registerFile);
         }
     }
 
@@ -312,9 +325,10 @@ internal class Assembler() : BigEndianAssembler(new Tokenizer())
             WriteByte(indirectOp2 | register << 3);
         }
         else {
+            var registerToken = LastToken;
             var registerFile = ParseRegisterFileNotNull();
             WriteByte(registerOp);
-            WriteByte(registerFile);
+            WriteByte(registerToken, registerFile);
         }
     }
 
@@ -514,10 +528,11 @@ internal class Assembler() : BigEndianAssembler(new Tokenizer())
             }
         }
         {
+            var destinationRegisterToken = LastToken;
             var destinationRegisterFile = ParseRegisterFile();
             if (destinationRegisterFile != null) {
                 AcceptReservedWord(',');
-                if (IsInRegisterRange(destinationRegisterFile.Value)) {
+                if (destinationRegisterFile.IsConst() && IsInRegisterRange(destinationRegisterFile.Value)) {
                     var destinationRegister = destinationRegisterFile.Value;
                     if (LastToken.IsReservedWord('@')) {
                         NextToken();
@@ -652,25 +667,26 @@ internal class Assembler() : BigEndianAssembler(new Tokenizer())
                     }
                 }
                 {
+                    var sourceRegisterToken = LastToken;
                     var sourceRegisterFile = ParseRegisterFile();
                     if (sourceRegisterFile != null) {
-                        if (IsInRegisterRange(destinationRegisterFile.Value)) {
+                        if (destinationRegisterFile.IsConst() && IsInRegisterRange(destinationRegisterFile.Value)) {
                             // Register, Register File
                             WriteByte(0b10110000 | destinationRegisterFile.Value);
-                            WriteByte(sourceRegisterFile.Value);
+                            WriteByte(sourceRegisterToken, sourceRegisterFile);
                             return;
                         }
 
-                        if (IsInRegisterRange(sourceRegisterFile.Value)) {
+                        if (sourceRegisterFile.IsConst() && IsInRegisterRange(sourceRegisterFile.Value)) {
                             // Register File, Register
                             WriteByte(0b10111000 | sourceRegisterFile.Value);
-                            WriteByte(destinationRegisterFile.Value);
+                            WriteByte(destinationRegisterToken, destinationRegisterFile);
                             return;
                         }
                         // Register File, Register File
                         WriteByte(0b01001000);
-                        WriteByte(sourceRegisterFile.Value);
-                        WriteByte(destinationRegisterFile.Value);
+                        WriteByte(sourceRegisterToken, sourceRegisterFile);
+                        WriteByte(destinationRegisterToken, destinationRegisterFile);
                         return;
                     }
                 }
@@ -681,7 +697,7 @@ internal class Assembler() : BigEndianAssembler(new Tokenizer())
                         // Register File, Immediate
                         WriteByte(0b01011000);
                         WriteByte(valueToken, value);
-                        WriteByte(destinationRegisterFile.Value);
+                        WriteByte(destinationRegisterToken, destinationRegisterFile);
                         return;
                     }
                 }
@@ -751,6 +767,7 @@ internal class Assembler() : BigEndianAssembler(new Tokenizer())
 
     private void MoveUnderMask()
     {
+        var destinationRegisterToken = LastToken;
         var destinationRegisterFile = ParseRegisterFileNotNull();
         AcceptReservedWord(',');
         var value1Token = LastToken;
@@ -758,13 +775,14 @@ internal class Assembler() : BigEndianAssembler(new Tokenizer())
         if (value1 != null) {
             AcceptReservedWord(',');
             {
+                var sourceRegisterToken = LastToken;
                 var sourceRegisterFile = ParseRegisterFile();
                 if (sourceRegisterFile != null) {
                     // Register File, Immediate, Register File
                     WriteByte(0b01011110);
-                    WriteByte(destinationRegisterFile);
+                    WriteByte(destinationRegisterToken, destinationRegisterFile);
                     WriteByte(value1Token, value1);
-                    WriteByte(sourceRegisterFile.Value);
+                    WriteByte(sourceRegisterToken, sourceRegisterFile);
                     return;
                 }
             }
@@ -774,7 +792,7 @@ internal class Assembler() : BigEndianAssembler(new Tokenizer())
                 if (value2 != null) {
                     // Register File, Immediate, Immediate
                     WriteByte(0b01011111);
-                    WriteByte(destinationRegisterFile);
+                    WriteByte(destinationRegisterToken, destinationRegisterFile);
                     WriteByte(value1Token, value1);
                     WriteByte(value2Token, value2);
                     return;
@@ -842,9 +860,10 @@ internal class Assembler() : BigEndianAssembler(new Tokenizer())
             ReturnToken(sign);
         }
         {
+            var destinationRegisterToken = LastToken;
             var destinationRegisterFile = ParseRegisterPairFile();
             if (destinationRegisterFile != null) {
-                if (IsInRegisterRange(destinationRegisterFile.Value)) {
+                if (destinationRegisterFile.IsConst() && IsInRegisterRange(destinationRegisterFile.Value)) {
                     var destinationRegister = destinationRegisterFile;
                     AcceptReservedWord(',');
                     if (LastToken.IsReservedWord('@')) {
@@ -897,8 +916,8 @@ internal class Assembler() : BigEndianAssembler(new Tokenizer())
                         }
                         ReturnToken(sign);
                     }
-
                     {
+                        var sourceRegisterToken = LastToken;
                         var sourceRegisterFile = ParseRegisterPairFile();
                         if (sourceRegisterFile != null) {
                             if (IsInRegisterRange(sourceRegisterFile.Value)) {
@@ -910,8 +929,8 @@ internal class Assembler() : BigEndianAssembler(new Tokenizer())
                             }
                             // Register Pair File, Register Pair File
                             WriteByte(0b01001010);
-                            WriteByte(sourceRegisterFile.Value);
-                            WriteByte(destinationRegisterFile.Value);
+                            WriteByte(sourceRegisterToken, sourceRegisterFile);
+                            WriteByte(destinationRegisterToken, destinationRegisterFile);
                             return;
                         }
                     }
@@ -943,12 +962,13 @@ internal class Assembler() : BigEndianAssembler(new Tokenizer())
                 else {
                     AcceptReservedWord(',');
                     {
+                        var sourceRegisterToken = LastToken;
                         var sourceRegisterFile = ParseRegisterPairFile();
                         if (sourceRegisterFile != null) {
                             // Register Pair File, Register Pair File
                             WriteByte(0b01001010);
-                            WriteByte(sourceRegisterFile.Value);
-                            WriteByte(destinationRegisterFile.Value);
+                            WriteByte(sourceRegisterToken, sourceRegisterFile);
+                            WriteByte(destinationRegisterToken, destinationRegisterFile);
                             return;
                         }
                     }
@@ -958,7 +978,7 @@ internal class Assembler() : BigEndianAssembler(new Tokenizer())
                         if (value != null) {
                             // Register Pair File, Immediate Long
                             WriteByte(0b01001011);
-                            WriteByte(destinationRegisterFile.Value);
+                            WriteByte(destinationRegisterToken, destinationRegisterFile);
                             WriteWord(valueToken, value);
                             return;
                         }
@@ -991,31 +1011,34 @@ internal class Assembler() : BigEndianAssembler(new Tokenizer())
 
     private void PushPop(int registerOp, int registerFileOp)
     {
+        var registerToken = LastToken;
         var registerFile = ParseRegisterFileNotNull();
-        if (IsInRegisterRange(registerFile)) {
+        if (registerFile.IsConst() && IsInRegisterRange(registerFile.Value)) {
             // Register
             WriteByte(0b00011011);
-            WriteByte(registerOp | registerFile << 3);
+            WriteByte(registerOp | registerFile.Value << 3);
             return;
         }
         // Register File
         WriteByte(registerFileOp);
-        WriteByte(registerFile);
+        WriteByte(registerToken, registerFile);
     }
 
     private void OperateRegisterPairFile(int op)
     {
+        var registerPairToken = LastToken;
         var registerPairFile = ParseRegisterPairFileNotNull();
         WriteByte(op);
-        WriteByte(registerPairFile);
+        WriteByte(registerPairToken, registerPairFile);
     }
 
     private void OperateByte(int op)
     {
+        var destinationRegisterToken = LastToken;
         var destinationRegisterFile = ParseRegisterFileNotNull();
         AcceptReservedWord(',');
-        if (IsInRegisterRange(destinationRegisterFile)) {
-            var destinationRegister = destinationRegisterFile;
+        if (destinationRegisterFile.IsConst() && IsInRegisterRange(destinationRegisterFile.Value)) {
+            var destinationRegister = destinationRegisterFile.Value;
             if (LastToken.IsReservedWord('@')) {
                 NextToken();
                 {
@@ -1103,7 +1126,9 @@ internal class Assembler() : BigEndianAssembler(new Tokenizer())
                     ReturnToken(sign);
                 }
             }
+
             {
+                var sourceRegisterToken = LastToken;
                 var sourceRegisterFile = ParseRegisterFile();
                 if (sourceRegisterFile != null) {
                     if (IsInRegisterRange(sourceRegisterFile.Value)) {
@@ -1115,8 +1140,8 @@ internal class Assembler() : BigEndianAssembler(new Tokenizer())
                     }
                     // Register File, Register File
                     WriteByte(0b01000000 | op);
-                    WriteByte(sourceRegisterFile.Value);
-                    WriteByte(destinationRegisterFile);
+                    WriteByte(sourceRegisterToken, sourceRegisterFile);
+                    WriteByte(destinationRegisterToken, destinationRegisterFile);
                     return;
                 }
             }
@@ -1159,7 +1184,7 @@ internal class Assembler() : BigEndianAssembler(new Tokenizer())
                         // Register File, Immediate
                         WriteByte(0b01010000 | op);
                         WriteByte(addressToken, address);
-                        WriteByte(destinationRegisterFile);
+                        WriteByte(destinationRegisterToken, destinationRegisterFile);
                         return;
                     }
                 }
@@ -1167,12 +1192,13 @@ internal class Assembler() : BigEndianAssembler(new Tokenizer())
         }
         else {
             {
+                var sourceRegisterToken = LastToken;
                 var sourceRegisterFile = ParseRegisterFile();
                 if (sourceRegisterFile != null) {
                     // Register File, Register File
                     WriteByte(0b01000000 | op);
-                    WriteByte(sourceRegisterFile.Value);
-                    WriteByte(destinationRegisterFile);
+                    WriteByte(sourceRegisterToken, sourceRegisterFile);
+                    WriteByte(destinationRegisterToken, destinationRegisterFile);
                     return;
                 }
             }
@@ -1183,7 +1209,7 @@ internal class Assembler() : BigEndianAssembler(new Tokenizer())
                     // Register File, Immediate
                     WriteByte(0b01010000 | op);
                     WriteByte(valueToken, value);
-                    WriteByte(destinationRegisterFile);
+                    WriteByte(destinationRegisterToken, destinationRegisterFile);
                     return;
                 }
             }
@@ -1192,15 +1218,17 @@ internal class Assembler() : BigEndianAssembler(new Tokenizer())
     }
     private void OperateWord(int op)
     {
+        var destinationRegisterToken = LastToken;
         var destinationRegisterFile = ParseRegisterPairFileNotNull();
         AcceptReservedWord(',');
         {
+            var sourceRegisterToken = LastToken;
             var sourceRegisterFile = ParseRegisterPairFile();
             if (sourceRegisterFile != null) {
                 // Register Pair File, Register Pair File
                 WriteByte(0b01100000 | op);
-                WriteByte(sourceRegisterFile.Value);
-                WriteByte(destinationRegisterFile);
+                WriteByte(sourceRegisterToken, sourceRegisterFile);
+                WriteByte(destinationRegisterToken, destinationRegisterFile);
                 return;
             }
             {
@@ -1209,7 +1237,7 @@ internal class Assembler() : BigEndianAssembler(new Tokenizer())
                 if (value != null) {
                     // Register Pair File, Immediate Long
                     WriteByte(0b01101000 | op);
-                    WriteByte(destinationRegisterFile);
+                    WriteByte(destinationRegisterToken, destinationRegisterFile);
                     WriteWord(valueToken, value);
                     return;
                 }
@@ -1222,12 +1250,13 @@ internal class Assembler() : BigEndianAssembler(new Tokenizer())
     {
         AcceptReservedWord(Keyword.BF);
         AcceptReservedWord(',');
+        var registerToken = LastToken;
         var registerFile = ParseRegisterFileNotNull();
         AcceptReservedWord(',');
         var bit = ParseBitIndexNotNull();
         WriteByte(0b01001111);
         WriteByte(op | bit);
-        WriteByte(registerFile);
+        WriteByte(registerToken, registerFile);
     }
 
     private void Compare()
@@ -1313,15 +1342,17 @@ internal class Assembler() : BigEndianAssembler(new Tokenizer())
 
     private void OperateWordByte(int op)
     {
+        var destinationRegisterToken = LastToken;
         var destinationRegisterFile = ParseRegisterPairFileNotNull();
         AcceptReservedWord(',');
         {
+            var sourceRegisterToken = LastToken;
             var sourceRegisterFile = ParseRegisterPairFile();
             if (sourceRegisterFile != null) {
                 // Register Pair File, Register Pair File
                 WriteByte(op);
-                WriteByte(sourceRegisterFile.Value);
-                WriteByte(destinationRegisterFile);
+                WriteByte(sourceRegisterToken, sourceRegisterFile);
+                WriteByte(destinationRegisterToken, destinationRegisterFile);
                 return;
             }
         }
@@ -1332,7 +1363,7 @@ internal class Assembler() : BigEndianAssembler(new Tokenizer())
                 // Register Pair File, Immediate
                 WriteByte(op | 1);
                 WriteByte(valueToken, value);
-                WriteByte(destinationRegisterFile);
+                WriteByte(destinationRegisterToken, destinationRegisterFile);
                 return;
             }
         }
@@ -1341,6 +1372,7 @@ internal class Assembler() : BigEndianAssembler(new Tokenizer())
 
     private void BitTest()
     {
+        var destinationRegisterToken = LastToken;
         var destinationRegisterFile = ParseRegisterFileNotNull();
         AcceptReservedWord(',');
         {
@@ -1349,7 +1381,7 @@ internal class Assembler() : BigEndianAssembler(new Tokenizer())
             if (value != null) {
                 // Register Pair File, Immediate
                 WriteByte(0b00101111);
-                WriteByte(destinationRegisterFile);
+                WriteByte(destinationRegisterToken, destinationRegisterFile);
                 WriteByte(valueToken, value);
                 return;
             }
@@ -1960,7 +1992,6 @@ internal class Assembler() : BigEndianAssembler(new Tokenizer())
         {Inu.Assembler.Keyword.WEnd, a=>a.WEndStatement()},
         {Keyword.DWNZ, (Assembler a)=>{a.DwNzStatement(); }},
     };
-
 
     protected override bool Instruction()
     {

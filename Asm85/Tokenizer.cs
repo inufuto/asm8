@@ -24,7 +24,13 @@ internal class Tokenizer : Inu.Assembler.Tokenizer
             if (char.IsDigit(nextChar1)) {
                 return new ReservedWord(position, upper);
             }
-            ReturnChar(c);
+
+            if (char.IsAsciiLetter(nextChar1)) {
+                ReturnChar(c);
+            }
+            else {
+                return new ReservedWord(position, 'R');
+            }
         }
         return base.GetToken(c, position);
     }
