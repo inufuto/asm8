@@ -244,6 +244,21 @@ internal class Assembler() : BigEndianAssembler(new Tokenizer())
         return condition ^ 0b1000;
     }
 
+    private static readonly int[] PortNames = new[]
+    {
+        Keyword.IE0, Keyword.IE1, Keyword.IR0, Keyword.IR1, Keyword.P0, Keyword.P1, Keyword.P2, Keyword.P3
+    };
+
+    private int? ParsePortName()
+    {
+        for (var i = 0; i < PortNames.Length; ++i) {
+            if (!LastToken.IsReservedWord(PortNames[i])) continue;
+            NextToken();
+            return i;
+        }
+        return null;
+    }
+
 
     private void BitSetReset(int memoryOp, int registerOp)
     {
@@ -504,27 +519,21 @@ internal class Assembler() : BigEndianAssembler(new Tokenizer())
             WriteByte(valueToken, value);
             return;
         }
-
         {
-            var ids = new int[]
-            {
-                Keyword.IE0, Keyword.IE1, Keyword.IR0, Keyword.IR1, Keyword.P0, Keyword.P1, Keyword.P2, Keyword.P3
-            };
-            for (var i = 0; i < ids.Length; ++i) {
-                if (LastToken.IsReservedWord(ids[i])) {
-                    NextToken();
-                    AcceptReservedWord(',');
-                    var valueToken = LastToken;
-                    var value = Expression();
-                    if (value == null) {
-                        ShowSyntaxError(valueToken);
-                        value = new Address(0);
-                    }
-                    // , Immediate
-                    WriteByte(0b11001000 | i);
-                    WriteByte(valueToken, value);
-                    return;
+            var port = ParsePortName();
+            if (port != null) {
+                AcceptReservedWord(',');
+                var valueToken = LastToken;
+                var value = Expression();
+                if (value == null) {
+                    ShowSyntaxError(valueToken);
+                    value = new Address(0);
                 }
+                // , Immediate
+                WriteByte(0b11001000 | port.Value);
+                WriteByte(valueToken, value);
+                return;
+
             }
         }
         {
@@ -663,6 +672,15 @@ internal class Assembler() : BigEndianAssembler(new Tokenizer())
                                 WriteByte(sourceAddressToken, sourceAddress);
                                 return;
                             }
+                        }
+                    }
+                    {
+                        var port = ParsePortName();
+                        if (port != null) {
+                            // Register, Register File
+                            WriteByte(0b10110000 | destinationRegister);
+                            WriteByte(0x10 + port.Value);
+                            return;
                         }
                     }
                 }
