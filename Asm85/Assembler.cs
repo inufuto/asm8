@@ -958,7 +958,7 @@ internal class Assembler() : BigEndianAssembler(new Tokenizer())
                         if (address != null) {
                             if (LastToken.IsReservedWord('(')) {
                                 var sourceRegisterToken = NextToken();
-                                var sourceRegister = ParseRegisterNotNull();
+                                var sourceRegister = ParseRegisterPairNotNull();
                                 if (sourceRegister == 0) {
                                     ShowInvalidRegister(sourceRegisterToken, sourceRegister);
                                 }
@@ -1789,9 +1789,10 @@ internal class Assembler() : BigEndianAssembler(new Tokenizer())
                         return;
                     }
                 }
-                WriteByte(0b11010000 | InvertCondition(conditionBits));
-                WriteByte(3);
-                Jump(Always, LastToken, address);
+                //WriteByte(0b11010000 | InvertCondition(conditionBits));
+                //WriteByte(3);
+                //Jump(Always, LastToken, address);
+                Jump(conditionBits, LastToken, address);
                 return;
             }
         }
