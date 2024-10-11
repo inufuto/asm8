@@ -41,7 +41,7 @@ namespace Inu.Assembler
 
         protected const int NextId = MinId + 30;
 
-        public static readonly Dictionary<int, string> Words = new Dictionary<int, string>()
+        public static readonly Dictionary<int, string> Words = new()
         {
             { CSeg,"CSEG"},
             { Db,"DB"},
