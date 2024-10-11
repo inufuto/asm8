@@ -524,15 +524,8 @@ internal class Assembler() : LittleEndianAssembler(new Tokenizer())
                 var addressToken = LastToken;
                 var address = Expression();
                 if (address != null) {
-                    if (RelativeOffset(addressToken, address, 2, out var offset)) {
-                        // jr cond, imm8
-                        WriteByte(0b00100000 | condition.Value << 3);
-                        WriteByte(offset);
-                        return;
-                    }
-                    // jp cond, imm16
-                    WriteByte(0b11000010 | condition.Value << 3);
-                    WriteWord(addressToken, address);
+                    var conditionBits = condition.Value;
+                    Jump(conditionBits, addressToken, address);
                     return;
                 }
             }
@@ -541,20 +534,40 @@ internal class Assembler() : LittleEndianAssembler(new Tokenizer())
             var addressToken = LastToken;
             var address = Expression();
             if (address != null) {
-                if (RelativeOffset(addressToken, address, 2, out var offset)) {
-                    // jr imm8
-                    WriteByte(0b00011000);
-                    WriteByte(offset);
-                    return;
-                }
-                // jp imm16
-                WriteByte(0b11000011);
-                WriteWord(addressToken, address);
+                JumpAlways(addressToken, address);
                 return;
             }
         }
         ShowSyntaxError(LastToken);
     }
+
+    private void JumpAlways(Token addressToken, Address address)
+    {
+        if (RelativeOffset(addressToken, address, 2, out var offset)) {
+            // jr imm8
+            WriteByte(0b00011000);
+            WriteByte(offset);
+            return;
+        }
+        // jp imm16
+        WriteByte(0b11000011);
+        WriteWord(addressToken, address);
+        return;
+    }
+
+    private void Jump(int conditionBits, Token addressToken, Address address)
+    {
+        if (RelativeOffset(addressToken, address, 2, out var offset)) {
+            // jr cond, imm8
+            WriteByte(0b00100000 | conditionBits << 3);
+            WriteByte(offset);
+            return;
+        }
+        // jp cond, imm16
+        WriteByte(0b11000010 | conditionBits << 3);
+        WriteWord(addressToken, address);
+    }
+
     private void OperateArithmetic(int registerOpCode, int immediateOpCode)
     {
         {
@@ -870,7 +883,120 @@ internal class Assembler() : LittleEndianAssembler(new Tokenizer())
         ShowSyntaxError(LastToken);
     }
 
+    private static int InvertCondition(int conditionBits) => conditionBits ^ 1;
 
+    private void ConditionalJump(Address address, bool inverted)
+    {
+        {
+            var condition = ParseCondition();
+            if (condition != null) {
+                var conditionBits = condition.Value;
+                if (inverted) {
+                    conditionBits = InvertCondition(conditionBits);
+                }
+                Jump(conditionBits, LastToken, address);
+                return;
+            }
+        }
+        ShowSyntaxError(LastToken);
+    }
+
+
+    private void StartIf(IfBlock block)
+    {
+        var address = SymbolAddress(block.ElseId);
+        ConditionalJump(address, true);
+    }
+
+
+    private void IfStatement()
+    {
+        var block = NewIfBlock();
+        StartIf(block);
+    }
+
+    private void EndIfStatement()
+    {
+        if (LastBlock() is IfBlock block) {
+            DefineSymbol(block.ElseId <= 0 ? block.EndId : block.ConsumeElse(), CurrentAddress);
+            EndBlock();
+        }
+        else {
+            ShowNoStatementError(LastToken, "IF");
+        }
+    }
+
+    private void UnconditionalJump(Address address)
+    {
+        JumpAlways(LastToken, address);
+    }
+
+    private void ElseStatement()
+    {
+        if (LastBlock() is not IfBlock block) {
+            ShowNoStatementError(LastToken, "IF");
+        }
+        else {
+            if (block.ElseId <= 0) {
+                ShowError(LastToken.Position, "Multiple ELSE statement.");
+            }
+            var address = SymbolAddress(block.EndId);
+            UnconditionalJump(address);
+            DefineSymbol(block.ConsumeElse(), CurrentAddress);
+        }
+    }
+
+    private void ElseIfStatement()
+    {
+        ElseStatement();
+        if (LastBlock() is not IfBlock block) { return; }
+        Debug.Assert(block.ElseId == Block.InvalidId);
+        block.ElseId = AutoLabel();
+        StartIf(block);
+    }
+
+    private void DoStatement()
+    {
+        var block = NewWhileBlock();
+        DefineSymbol(block.BeginId, CurrentAddress);
+    }
+
+    private void WhileStatement()
+    {
+        if (LastBlock() is not WhileBlock block) {
+            ShowNoStatementError(LastToken, "WHILE");
+            NextToken();
+            return;
+        }
+
+        var repeatAddress = SymbolAddress(block.RepeatId);
+        int offset;
+        if (repeatAddress.Type == CurrentSegment.Type && (offset = RelativeOffset(repeatAddress)) <= 0 && offset >= -2) {
+            var address = SymbolAddress(block.BeginId);
+            ConditionalJump(address, false);
+            block.EraseEndId();
+        }
+        else {
+            var address = SymbolAddress(block.EndId);
+            ConditionalJump(address, true);
+        }
+    }
+
+    private void WEndStatement()
+    {
+        if (LastBlock() is not WhileBlock block) {
+            ShowNoStatementError(LastToken, "WHILE");
+        }
+        else {
+            if (block.EndId > 0) {
+                DefineSymbol(block.RepeatId, CurrentAddress);
+                var address = SymbolAddress(block.BeginId);
+                UnconditionalJump(address);
+                DefineSymbol(block.EndId, CurrentAddress);
+            }
+            EndBlock();
+        }
+    }
 
     private static readonly Dictionary<int, Action<Assembler>> Actions = new()
     {
@@ -918,6 +1044,13 @@ internal class Assembler() : LittleEndianAssembler(new Tokenizer())
         {Keyword.BIT,a=>a.OperateBit(0b01000000)},
         {Keyword.RES,a=>a.OperateBit(0b10000000)},
         {Keyword.SET,a=>a.OperateBit(0b11000000)},
+        {Inu.Assembler.Keyword.If, a=>a.IfStatement()},
+        {Inu.Assembler.Keyword.EndIf, a=>a.EndIfStatement()},
+        {Inu.Assembler.Keyword.Else, a=>a.ElseStatement()},
+        {Inu.Assembler.Keyword.ElseIf, a=>a.ElseIfStatement()},
+        {Inu.Assembler.Keyword.Do, a=>a.DoStatement()},
+        {Inu.Assembler.Keyword.While, a=>a.WhileStatement()},
+        {Inu.Assembler.Keyword.WEnd, a=>a.WEndStatement()},
     };
 
     protected override bool Instruction()
