@@ -169,26 +169,38 @@ internal class Assembler() : LittleEndianAssembler(new Tokenizer())
                 var wordRegisterToken = LastToken;
                 var wordRegister = ParseWordRegister();
                 if (wordRegister != null) {
-                    switch (wordRegister) {
-                        case WordRegister.BC:
-                            ViaPointer(PointerRegister.BC);
+                    if (wordRegister == WordRegister.BC) {
+                        ViaPointer(PointerRegister.BC);
+                        return;
+                    }
+                    if (wordRegister == WordRegister.DE) {
+                        ViaPointer(PointerRegister.DE);
+                        return;
+                    }
+                    if (wordRegister == WordRegister.HL) {
+                        if (LastToken.IsReservedWord('+')) {
+                            NextToken();
+                            ViaPointer(PointerRegister.HLIncrement);
                             return;
-                        case WordRegister.DE:
-                            ViaPointer(PointerRegister.DE);
+                        }
+
+                        if (LastToken.IsReservedWord('-')) {
+                            NextToken();
+                            ViaPointer(PointerRegister.HLDecrement);
                             return;
-                        case WordRegister.HL:
-                            if (LastToken.IsReservedWord('+')) {
-                                NextToken();
-                                ViaPointer(PointerRegister.HLIncrement);
+                        }
+
+                        AcceptReservedWord(')');
+                        AcceptReservedWord(',');
+                        {
+                            var byteRegister = ParseByteRegister();
+                            if (byteRegister != null) {
+                                // ld (hl), r8
+                                WriteByte(0b01000000 | ByteRegister.M << 3 | byteRegister.Value);
                                 return;
                             }
-                            if (LastToken.IsReservedWord('-')) {
-                                NextToken();
-                                ViaPointer(PointerRegister.HLDecrement);
-                                return;
-                            }
-                            AcceptReservedWord(')');
-                            AcceptReservedWord(',');
+                        }
+                        {
                             var valueToken = LastToken;
                             var value = Expression();
                             if (value != null) {
@@ -197,12 +209,13 @@ internal class Assembler() : LittleEndianAssembler(new Tokenizer())
                                 WriteByte(valueToken, value);
                                 return;
                             }
-                            break;
-                        default:
-                            ShowInvalidRegister(wordRegisterToken);
-                            ViaPointer(0);
-                            break;
+                        }
                     }
+                    else {
+                        ShowInvalidRegister(wordRegisterToken);
+                        ViaPointer(0);
+                    }
+
                     return;
 
                     void ViaPointer(int pointerRegister)
@@ -342,6 +355,9 @@ internal class Assembler() : LittleEndianAssembler(new Tokenizer())
             var leftRegister = ParseWordRegister();
             if (leftRegister != null) {
                 AcceptReservedWord(',');
+                if (LastToken.IsReservedWord('(') && leftRegister.Value != WordRegister.SP) {
+                    ShowSyntaxError(LastToken);
+                }
                 {
                     var valueToken = LastToken;
                     var value = Expression();
