@@ -77,6 +77,11 @@ namespace Inu.Assembler
             if (Type != AddressType.Const) {
                 Part = (AddressPart)stream.ReadByte();
             }
+
+            if (Part == AddressPart.TByte && Value >= 0x8000)
+            {
+                Value -= 0x10000;
+            }
         }
 
         public bool IsUndefined() { return Type == AddressType.Undefined; }

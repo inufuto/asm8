@@ -1058,10 +1058,23 @@ namespace Inu.Assembler.I8086
             var operand = Expression();
             if (operand == null) return IndirectJump(0b00010000, 0b00011000);
             if (operand.IsConst()) {
+                int highWord;
+                if (LastToken.IsReservedWord(':')) {
+                    highWord = operand.Value;
+                    NextToken();
+                    operandToken = LastToken;
+                    operand = Expression();
+                    if (operand == null) {
+                        return false;
+                    }
+                }
+                else {
+                    highWord = (operand.Value & 0xf0000) >> 4;
+                }
                 // far
                 WriteByte(0b10011010);
+                Debug.Assert(operand != null);
                 WriteWord(operandToken, operand);
-                var highWord = (operand.Value & 0xf0000) >> 4;
                 WriteByte(highWord);
                 WriteByte(highWord >> 8);
                 return true;
