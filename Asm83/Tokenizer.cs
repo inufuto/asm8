@@ -1,6 +1,6 @@
 ﻿using Inu.Language;
 
-namespace Inu.Assembler.Z80;
+namespace Inu.Assembler.Sm83;
 
 internal class Tokenizer : Inu.Assembler.Tokenizer
 {

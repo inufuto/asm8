@@ -11,7 +11,8 @@ namespace Inu.Language
 
         public Token LastToken { get; private set; }
         private readonly Tokenizer tokenizer;
-        private readonly Dictionary<SourcePosition, string> errors = new Dictionary<SourcePosition, string>();
+        private readonly Dictionary<SourcePosition, string> errors = new();
+        private readonly Stack<Token> stack = new();
 
         public TokenReader(Tokenizer tokenizer)
         {
@@ -26,6 +27,9 @@ namespace Inu.Language
 
         public Token NextToken()
         {
+            if (stack.Count > 0) {
+                return LastToken = stack.Pop();
+            }
             return LastToken = tokenizer.GetToken();
         }
 
@@ -64,6 +68,12 @@ namespace Inu.Language
             if (LastToken is ReservedWord reservedWord && reservedWord.Id == id) return NextToken();
             ShowError(LastToken.Position, "Missing " + ReservedWord.FromId(id));
             return LastToken;
+        }
+
+        public void ReturnToken(Token token)
+        {
+            stack.Push(LastToken);
+            LastToken = token;
         }
     }
 }
