@@ -1,78 +1,79 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace Inu.Language;
-
-public class TokenReader
+namespace Inu.Language
 {
-    public const int Failure = 1;
-    public const int Success = 0;
-
-
-    public Token LastToken { get; private set; }
-    private readonly Tokenizer tokenizer;
-    private readonly Dictionary<SourcePosition, string> errors = new Dictionary<SourcePosition, string>();
-    private readonly Stack<Token> stack = new();
-
-    public TokenReader(Tokenizer tokenizer)
+    public class TokenReader
     {
-        this.tokenizer = tokenizer;
-        LastToken = new ReservedWord(new SourcePosition("", 0), ReservedWord.EndOfFile);
-    }
+        public const int Failure = 1;
+        public const int Success = 0;
 
-    protected void OpenSourceFile(string fileName)
-    {
-        tokenizer.OpenSourceFile(fileName);
-    }
 
-    public Token NextToken()
-    {
-        if (stack.Count > 0) {
-            return LastToken = stack.Pop();
+        public Token LastToken { get; private set; }
+        private readonly Tokenizer tokenizer;
+        private readonly Dictionary<SourcePosition, string> errors = new();
+        private readonly Stack<Token> stack = new();
+
+        public TokenReader(Tokenizer tokenizer)
+        {
+            this.tokenizer = tokenizer;
+            LastToken = new ReservedWord(new SourcePosition("", 0), ReservedWord.EndOfFile);
         }
-        return LastToken = tokenizer.GetToken();
-    }
 
-    public void ShowError(SourcePosition position, string error)
-    {
-        if (errors.ContainsKey(position)) return;
-        var s = $"{position.ToString()}: {error}";
-        errors[position] = s;
-        Console.Error.WriteLine(s);
-    }
+        protected void OpenSourceFile(string fileName)
+        {
+            tokenizer.OpenSourceFile(fileName);
+        }
 
-    public void ShowSyntaxError(Token token)
-    {
-        ShowError(token.Position, "Syntax error: " + token);
-    }
+        public Token NextToken()
+        {
+            if (stack.Count > 0) {
+                return LastToken = stack.Pop();
+            }
+            return LastToken = tokenizer.GetToken();
+        }
 
-    public void ShowSyntaxError()
-    {
-        ShowSyntaxError(LastToken);
-    }
+        public void ShowError(SourcePosition position, string error)
+        {
+            if (errors.ContainsKey(position)) return;
+            var s = $"{position.ToString()}: {error}";
+            errors[position] = s;
+            Console.Error.WriteLine(s);
+        }
 
-    public void ShowUndefinedError(Token identifier)
-    {
-        ShowError(identifier.Position, "Undefined: " + identifier.ToString());
-    }
+        public void ShowSyntaxError(Token token)
+        {
+            ShowError(token.Position, "Syntax error: " + token);
+        }
 
-    public void ShowMissingIdentifier(SourcePosition position)
-    {
-        ShowError(position, "Missing identifier.");
-    }
+        public void ShowSyntaxError()
+        {
+            ShowSyntaxError(LastToken);
+        }
 
-    public int ErrorCount => errors.Count;
+        public void ShowUndefinedError(Token identifier)
+        {
+            ShowError(identifier.Position, "Undefined: " + identifier.ToString());
+        }
 
-    public Token AcceptReservedWord(int id)
-    {
-        if (LastToken is ReservedWord reservedWord && reservedWord.Id == id) return NextToken();
-        ShowError(LastToken.Position, "Missing " + ReservedWord.FromId(id));
-        return LastToken;
-    }
+        public void ShowMissingIdentifier(SourcePosition position)
+        {
+            ShowError(position, "Missing identifier.");
+        }
 
-    public void ReturnToken(Token token)
-    {
-        stack.Push(LastToken);
-        LastToken = token;
+        public int ErrorCount => errors.Count;
+
+        public Token AcceptReservedWord(int id)
+        {
+            if (LastToken is ReservedWord reservedWord && reservedWord.Id == id) return NextToken();
+            ShowError(LastToken.Position, "Missing " + ReservedWord.FromId(id));
+            return LastToken;
+        }
+
+        public void ReturnToken(Token token)
+        {
+            stack.Push(LastToken);
+            LastToken = token;
+        }
     }
 }

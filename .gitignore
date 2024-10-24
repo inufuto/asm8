@@ -121,11 +121,7 @@ Properties
 /Asm85/.vs
 /Asm85/bin
 /Asm85/obj
-/ud.bat
-/up.bat
-/down.bat
-/liblist.bat
-/c.bat
+*.bat
 /Asm83/.vs/Asm83
 /Asm83/bin
 /Asm83/obj

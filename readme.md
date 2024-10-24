@@ -17,6 +17,7 @@ This repository contains following Visual Studio Solutions:
 |Asm86.sln|assembler for 8086|
 |Asm62.sln|assembler for SC62015|
 |Asm61h.sln|assembler for HD61700|
+|Asm83.sln|assembler for SM83|
 |LinkLE.sln|linker for little endian CPU|
 |LinkBE.sln|linker for big endian CPU|
 |Lib8.sln|librarian|
