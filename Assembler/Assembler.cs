@@ -28,7 +28,7 @@ public abstract class Assembler : TokenReader
         CurrentSegment = @object.Segments[0];
     }
 
-    public virtual bool ZeroPageAvailable => false;
+    public virtual bool ZeroPageAvailable => true;
     public virtual AddressPart PointerAddressPart => AddressPart.Word;
 
 
