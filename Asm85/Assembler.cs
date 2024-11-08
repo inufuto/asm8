@@ -949,7 +949,7 @@ internal class Assembler() : BigEndianAssembler(new Tokenizer())
                         var sourceRegisterToken = LastToken;
                         var sourceRegisterFile = ParseRegisterPairFile();
                         if (sourceRegisterFile != null) {
-                            if (IsInRegisterPairRange(sourceRegisterFile.Value)) {
+                            if (sourceRegisterFile.IsConst() && IsInRegisterPairRange(sourceRegisterFile.Value)) {
                                 var sourceRegister = sourceRegisterFile.Value;
                                 if (sourceRegister >= 8) {
                                     sourceRegister = (sourceRegister & 7) | 1;
@@ -1163,7 +1163,7 @@ internal class Assembler() : BigEndianAssembler(new Tokenizer())
                 var sourceRegisterToken = LastToken;
                 var sourceRegisterFile = ParseRegisterFile();
                 if (sourceRegisterFile != null) {
-                    if (IsInRegisterRange(sourceRegisterFile.Value)) {
+                    if (sourceRegisterFile.IsConst() && IsInRegisterRange(sourceRegisterFile.Value)) {
                         var sourceRegister = sourceRegisterFile.Value;
                         // Register, Register
                         WriteByte(0b00010000 | op);
