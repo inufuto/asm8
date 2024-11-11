@@ -1,13 +1,12 @@
 ﻿using Inu.Language;
 
-namespace Inu.Assembler.Z80
+namespace Inu.Assembler.Z80;
+
+class Program
 {
-    class Program
+    public static int Main(string[] args)
     {
-        public static int Main(string[] args)
-        {
-            var normalArgument = new NormalArgument(args);
-            return new Assembler().Main(normalArgument);
-        }
+        var normalArgument = new NormalArgument(args);
+        return new Assembler().Main(normalArgument);
     }
 }

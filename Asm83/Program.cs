@@ -1,10 +1,10 @@
 ﻿using Inu.Language;
 
-namespace Inu.Assembler.Mc6809;
+namespace Inu.Assembler.Sm83;
 
-public class Program
+internal class Program
 {
-    public static int Main(string[] args)
+    static int Main(string[] args)
     {
         var normalArgument = new NormalArgument(args);
         return new Assembler().Main(normalArgument);
