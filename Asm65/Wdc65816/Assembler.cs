@@ -569,7 +569,7 @@ internal class Assembler() : Mos6502.Assembler(new Tokenizer())
         }
     }
 
-    private static bool IsLong(Address value) => value.IsConst() && (value.Value & 0xff00000) != 0;
+    private static bool IsLong(Address value) => value.IsConst() && (value.Value & 0xff0000) != 0;
 
     private void WriteTripleBytes(int value)
     {
