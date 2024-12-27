@@ -12,7 +12,9 @@ namespace Inu.Assembler.Mos6502
 
         protected enum AddressingMode
         {
-            Immediate, ZeroPage, ZeroPageX, ZeroPageY, Absolute, AbsoluteX, AbsoluteY, Indirect, IndirectX, IndirectY
+            Immediate, ZeroPage, ZeroPageX, ZeroPageY, Absolute, AbsoluteX, AbsoluteY, Indirect, IndirectX, IndirectY,
+            //
+            IndirectLong, IndirectLongY, StackRelative, StackRelativeIndirectY
         }
 
         protected void ShowInvalidAddressingMode(Token token)
@@ -30,7 +32,7 @@ namespace Inu.Assembler.Mos6502
             if (!LastToken.IsReservedWord(','))
                 return value;
             var token = NextToken();
-            if (!token.IsReservedWord(Keyword.X) && !token.IsReservedWord(Keyword.Y))
+            if (!IsOffsetRegister(token))
                 return null;
             var reservedWord = token as ReservedWord;
             Debug.Assert(reservedWord != null);
@@ -40,7 +42,12 @@ namespace Inu.Assembler.Mos6502
 
         }
 
-        protected Address? Operand(out AddressingMode? addressingMode)
+        protected virtual bool IsOffsetRegister(Token token)
+        {
+            return (token.IsReservedWord(Keyword.X) || token.IsReservedWord(Keyword.Y));
+        }
+
+        protected virtual Address? Operand(out AddressingMode? addressingMode)
         {
             addressingMode = null;
             Address? value;
@@ -50,6 +57,31 @@ namespace Inu.Assembler.Mos6502
                 addressingMode = AddressingMode.Immediate;
                 return value;
             }
+
+            if (LastToken.IsReservedWord('(')) {
+                return Indirect(')', out addressingMode);
+            }
+            if (LastToken.IsReservedWord('[')) {
+                return Indirect(']', out addressingMode);
+            }
+
+            var (zeroPage, absolute) = AddressSize();
+
+            value = OperandWithOffset(out var registerId);
+            if (value == null)
+                return null;
+            if (zeroPage || (value.IsByte() && !absolute)) {
+                addressingMode = ToAddressingMode(registerId);
+            }
+            else {
+                addressingMode = registerId switch
+                {
+                    Keyword.X => AddressingMode.AbsoluteX,
+                    Keyword.Y => AddressingMode.AbsoluteY,
+                    _ => AddressingMode.Absolute
+                };
+            }
+            return value;
 
             Address? Indirect(char c, out AddressingMode? mode)
             {
@@ -76,36 +108,16 @@ namespace Inu.Assembler.Mos6502
                 AcceptReservedWord(c);
                 return value;
             }
+        }
 
-            if (LastToken.IsReservedWord('(')) {
-                return Indirect(')', out addressingMode);
-            }
-            if (LastToken.IsReservedWord('[')) {
-                return Indirect(']', out addressingMode);
-            }
-
-            var (zeroPage, absolute) = AddressSize();
-
-            value = OperandWithOffset(out var registerId);
-            if (value == null)
-                return null;
-            if (zeroPage || (value.IsByte() && !absolute)) {
-                addressingMode = registerId switch
-                {
-                    Keyword.X => AddressingMode.ZeroPageX,
-                    Keyword.Y => AddressingMode.ZeroPageY,
-                    _ => AddressingMode.ZeroPage
-                };
-            }
-            else {
-                addressingMode = registerId switch
-                {
-                    Keyword.X => AddressingMode.AbsoluteX,
-                    Keyword.Y => AddressingMode.AbsoluteY,
-                    _ => AddressingMode.Absolute
-                };
-            }
-            return value;
+        protected virtual AddressingMode ToAddressingMode(int? registerId)
+        {
+            return registerId switch
+            {
+                Keyword.X => AddressingMode.ZeroPageX,
+                Keyword.Y => AddressingMode.ZeroPageY,
+                _ => AddressingMode.ZeroPage
+            };
         }
 
         protected (bool zeroPage, bool absolute) AddressSize()
@@ -151,7 +163,7 @@ namespace Inu.Assembler.Mos6502
                 case Keyword.Cmp:
                     code = 0xc1;
                     break;
-                case Keyword.And:
+                case Inu.Assembler.Keyword.And:
                     code = 0x21;
                     break;
                 case Keyword.Eor:
@@ -172,14 +184,20 @@ namespace Inu.Assembler.Mos6502
                 return true;
             }
 
-            if (!store && addressingMode is AddressingMode.Immediate && !store) {
-                WriteByte(code | 0x09);
-                WriteByte(token, value);
+            if (!store && addressingMode is AddressingMode.Immediate && !store)
+            {
+                ImmediateInstruction(token, code, value);
             }
             else {
                 EightModeInstruction(addressingMode, code, token, value);
             }
             return true;
+        }
+
+        protected virtual void ImmediateInstruction(Token token, byte code, Address value)
+        {
+            WriteByte(code | 0x09);
+            WriteByte(token, value);
         }
 
         protected virtual void EightModeInstruction(AddressingMode? addressingMode, byte code, Token token, Address value)
@@ -285,8 +303,13 @@ namespace Inu.Assembler.Mos6502
         {
             var reservedWord = LastToken as ReservedWord;
             Debug.Assert(reservedWord != null);
-            byte code;
-            switch (reservedWord.Id) {
+            return ImpliedInstruction(reservedWord.Id);
+        }
+
+        protected virtual bool ImpliedInstruction(int id)
+        {
+            int code;
+            switch (id) {
                 case Keyword.Tax:
                     code = 0xaa;
                     break;
@@ -371,7 +394,7 @@ namespace Inu.Assembler.Mos6502
         }
 
 
-        private void LoadXInstruction(Token token, Address value, AddressingMode addressingMode)
+        protected virtual void LoadXInstruction(Token token, Address value, AddressingMode addressingMode)
         {
             switch (addressingMode) {
                 case AddressingMode.Immediate:
@@ -400,7 +423,7 @@ namespace Inu.Assembler.Mos6502
             }
         }
 
-        private void LoadYInstruction(Token token, Address value, AddressingMode addressingMode)
+        protected virtual void LoadYInstruction(Token token, Address value, AddressingMode addressingMode)
         {
             switch (addressingMode) {
                 case AddressingMode.Immediate:
@@ -598,7 +621,7 @@ namespace Inu.Assembler.Mos6502
             }
         }
 
-        private void JumpSubroutineInstruction(Token token, Address value, AddressingMode addressingMode)
+        protected virtual void JumpSubroutineInstruction(Token token, Address value, AddressingMode addressingMode)
         {
             switch (addressingMode) {
                 case AddressingMode.Absolute:
@@ -682,16 +705,21 @@ namespace Inu.Assembler.Mos6502
             }
             NextToken();
 
+            BranchInstruction(code);
+            return true;
+        }
+
+        protected void BranchInstruction(byte code)
+        {
             if (RelativeOffset(out var address, out var offset)) {
                 WriteByte(code);
                 WriteByte(offset);
-                return true;
+                return;
             }
             WriteByte(code ^ 0x20);
             WriteByte(3);
             WriteByte(0x4c);    // JMP
             WriteWord(LastToken, address);
-            return true;
         }
 
         protected virtual void ConditionalBranch(Address address, byte invertedBits)
@@ -872,7 +900,7 @@ namespace Inu.Assembler.Mos6502
 
         protected override bool Instruction()
         {
-            if (!(LastToken is ReservedWord reservedWord))
+            if (LastToken is not ReservedWord reservedWord)
                 return false;
             if (ImpliedInstruction())
                 return true;

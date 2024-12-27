@@ -10,7 +10,7 @@ This repository contains following Visual Studio Solutions:
 |Asm80.sln|assembler for Z80|
 |Asm80i.sln|assembler for 8080|
 |Asm68.sln|assembler for 6800|
-|Asm65.sln|assembler for 6502|
+|Asm65.sln|assembler for 6502, 65816|
 |Asm09.sln|assembler for 6809|
 |Asm87.sln|assembler for μCOM87(μPD7800~7806)|
 |Asm99.sln|assembler for TMS9900|

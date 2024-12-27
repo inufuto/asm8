@@ -9,6 +9,7 @@ public class Program
     {
         Mos6502,
         Wdc65C02,
+        Wdc65816,
     };
 
     public static int Main(string[] args)
@@ -20,6 +21,7 @@ public class Program
             {
                 "6502" => CpuType.Mos6502,
                 "65C02" => CpuType.Wdc65C02,
+                "65816"=> CpuType.Wdc65816,
                 _ => cpuType
             };
             return false;
@@ -27,6 +29,7 @@ public class Program
         var assembler = cpuType switch
         {
             CpuType.Wdc65C02 => new Inu.Assembler.Wdc65c02.Assembler(),
+            CpuType.Wdc65816 => new Inu.Assembler.Wdc65816.Assembler(),
             _ => new Assembler()
         };
         return assembler.Main(normalArgument);

@@ -3,7 +3,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Xml.Linq;
 
 namespace Inu.Assembler;
 
@@ -112,7 +111,7 @@ public abstract class Assembler : TokenReader
     protected void WriteByte(Token token, Address value)
     {
         if (value.IsRelocatable() || value.Type == AddressType.External) {
-            if (value.Part == AddressPart.TByte) {
+            if (value.Part == AddressPart.TribleByte) {
                 value = value.PartOf(AddressPart.Word);
             }
             if (value.Part == AddressPart.Word) {
@@ -131,7 +130,7 @@ public abstract class Assembler : TokenReader
     protected void WriteWord(Token token, Address value)
     {
         if (value.IsRelocatable() || value.Type == AddressType.External) {
-            if (value.Part == AddressPart.TByte) {
+            if (value.Part == AddressPart.TribleByte) {
                 value = value.PartOf(AddressPart.Word);
             }
             Debug.Assert(value.Part == AddressPart.Word);
@@ -633,6 +632,11 @@ public abstract class Assembler : TokenReader
 
     protected bool RelativeOffset(int instructionLength, out Address address, out int offset)
     {
+        return RelativeOffset(instructionLength, IsRelativeOffsetInRange, out address, out offset);
+    }
+
+    protected bool RelativeOffset(int instructionLength, Func<int, bool> isInRange, out Address address, out int offset)
+    {
         offset = 0;
         var operand = LastToken;
         var expression = Expression();
@@ -642,7 +646,7 @@ public abstract class Assembler : TokenReader
             return false;
         }
         address = expression;
-        return RelativeOffset(operand, address, instructionLength, out offset);
+        return RelativeOffset(operand, address, instructionLength, isInRange, out offset);
     }
 
     protected bool RelativeOffset(Token token, Address address, out int offset)
@@ -652,6 +656,11 @@ public abstract class Assembler : TokenReader
     }
 
     protected bool RelativeOffset(Token token, Address address, int instructionLength, out int offset)
+    {
+        return RelativeOffset(token, address, instructionLength, IsRelativeOffsetInRange, out offset);
+    }
+
+    private bool RelativeOffset(Token token, Address address, int instructionLength, Func<int, bool> inRange, out int offset)
     {
         offset = 0;
         switch (address.Type) {
@@ -668,14 +677,16 @@ public abstract class Assembler : TokenReader
                 if (address.Type == CurrentSegment.Type) {
                     offset = RelativeOffset(address, instructionLength);
                 }
-                else {
+                else
+                {
                     ShowAddressUsageError(token);
                     return false;
                 }
 
                 break;
         }
-        return IsRelativeOffsetInRange(offset);
+
+        return inRange(offset);
     }
 
     protected abstract bool Instruction();
