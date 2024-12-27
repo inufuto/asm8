@@ -1,13 +1,15 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.31729.503
+# Visual Studio Version 17
+VisualStudioVersion = 17.12.35521.163 d17.12
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Asm65", "Asm65.csproj", "{D2DB447F-BECB-4157-AB0D-BB0168EA9F69}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Assembler", "..\Assembler\Assembler.csproj", "{10C758C8-99FD-4D5D-82A0-A9C1F3D6A1E6}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Language", "..\Language\Language.csproj", "{35ABEC98-3D8D-41BB-835A-E5867982D47D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Object", "..\Object\Object.csproj", "{97D9F4DF-CF38-419A-9BFC-A9D4F40C0963}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -27,6 +29,10 @@ Global
 		{35ABEC98-3D8D-41BB-835A-E5867982D47D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{35ABEC98-3D8D-41BB-835A-E5867982D47D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{35ABEC98-3D8D-41BB-835A-E5867982D47D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{97D9F4DF-CF38-419A-9BFC-A9D4F40C0963}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{97D9F4DF-CF38-419A-9BFC-A9D4F40C0963}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{97D9F4DF-CF38-419A-9BFC-A9D4F40C0963}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{97D9F4DF-CF38-419A-9BFC-A9D4F40C0963}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

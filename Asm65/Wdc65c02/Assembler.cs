@@ -5,18 +5,13 @@ using Inu.Language;
 
 namespace Inu.Assembler.Wdc65c02;
 
-internal class Assembler : Mos6502.Assembler
+internal class Assembler() : Mos6502.Assembler(new Tokenizer())
 {
-    public Assembler() : base(new Tokenizer())
-    { }
-
     protected override bool Instruction()
     {
         if (LastToken is not ReservedWord reservedWord)
             return false;
         if (Bra(reservedWord.Id))
-            return true;
-        if (ImpliedInstruction(reservedWord.Id))
             return true;
         if (Stz(reservedWord.Id))
             return true;
@@ -59,9 +54,9 @@ internal class Assembler : Mos6502.Assembler
         {Keyword.DEA, 0x3a},
     };
 
-    private bool ImpliedInstruction(int id)
+    protected override bool ImpliedInstruction(int id)
     {
-        if (!ImpliedInstructionCodes.TryGetValue(id, out var code)) return false;
+        if (!ImpliedInstructionCodes.TryGetValue(id, out var code)) return base.ImpliedInstruction(id);
         NextToken();
         WriteByte(code);
         return true;
