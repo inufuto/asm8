@@ -7,436 +7,427 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Xml.Linq;
 
 
-namespace Inu.Linker
+namespace Inu.Linker;
+
+internal class Error(string message) : Exception(message);
+
+class InvalidAddress(string s) : Error("Invalid address: " + s);
+
+public abstract class Linker
 {
-    internal class Error : Exception
+    public const int Failure = 1;
+    public const int Success = 0;
+
+    private static readonly AddressType[] SegmentAddressTypes = { AddressType.Code, AddressType.Data, AddressType.ZeroPage };
+    private static readonly Dictionary<AddressType, string> SegmentNames = new()
     {
-        public Error(string message) : base(message) { }
-    }
+        {AddressType.Code,"CSEG"},
+        {AddressType.Data,"DSEG"},
+        {AddressType.ZeroPage,"ZSEG"},
+    };
 
-    class InvalidAddress : Error
+    private readonly Dictionary<AddressType, Segment> segments = new();
+    private string? targetName;
+    private readonly StringTable identifiers = new(1);
+    private readonly Dictionary<int, Symbol> symbols = new();
+    private readonly SortedDictionary<Address, External> externals = new();
+    private readonly List<string> errors = new();
+    private int hexDigitCount = 4;
+
+    protected Linker()
     {
-        public InvalidAddress(string s) : base("Invalid address: " + s)
-        { }
-    }
-
-    public abstract class Linker
-    {
-        public const int Failure = 1;
-        public const int Success = 0;
-
-        private static readonly AddressType[] SegmentAddressTypes = { AddressType.Code, AddressType.Data, AddressType.ZeroPage };
-        private static readonly Dictionary<AddressType, string> SegmentNames = new()
-        {
-            {AddressType.Code,"CSEG"},
-            {AddressType.Data,"DSEG"},
-            {AddressType.ZeroPage,"ZSEG"},
-        };
-
-        private readonly Dictionary<AddressType, Segment> segments = new();
-        private string? targetName;
-        private readonly StringTable identifiers = new(1);
-        private readonly Dictionary<int, Symbol> symbols = new();
-        private readonly SortedDictionary<Address, External> externals = new();
-        private readonly List<string> errors = new();
-        private int hexDigitCount = 4;
-
-        protected Linker()
-        {
-            foreach (var addressType in SegmentAddressTypes) {
-                segments[addressType] = new Segment(addressType);
-            }
+        foreach (var addressType in SegmentAddressTypes) {
+            segments[addressType] = new Segment(addressType);
         }
+    }
 
-        public int Main(NormalArgument normalArgument, bool makeDataSegment)
-        {
-            try {
-                var args = normalArgument.Values;
-                var index = 0;
-                if (index >= args.Count) {
-                    Console.Error.WriteLine("No target file.");
-                    return Failure;
-                }
-
-                targetName = args[index++];
-                var directory = Path.GetDirectoryName(targetName);
-                if (string.IsNullOrEmpty(directory)) {
-                    directory = Directory.GetCurrentDirectory();
-                }
-
-                ParseAddresses(args, ref index);
-
-                if (index >= args.Count) {
-                    Console.Error.WriteLine("No object file.");
-                    return Failure;
-                }
-
-                var libraries = new List<Library.Library>();
-                while (index < args.Count) {
-                    var objName = args[index++];
-                    var objDirectory = Path.GetDirectoryName(objName);
-                    if (string.IsNullOrEmpty(objDirectory)) {
-                        objName = directory + Path.DirectorySeparatorChar + objName;
-                    }
-                    var extension = Path.GetExtension(objName);
-                    if (extension.ToLower() == Library.Library.Extension) {
-                        var library = new Library.Library();
-                        library.Load(objName);
-                        libraries.Add(library);
-                    }
-                    else {
-                        ReadObject(objName);
-                    }
-                }
-                {
-                    var changed = true;
-                    while (changed) {
-                        changed = false;
-                        foreach (var library in libraries) {
-                            var objects = new HashSet<Assembler.Object>();
-                            foreach (var external in externals.Select(pair => pair.Value)) {
-                                if (symbols.TryGetValue(external.Id, out _))
-                                    continue;
-                                var name = identifiers.FromId(external.Id);
-                                Debug.Assert(name != null);
-                                var obj = library.NameToObject(name);
-                                if (obj == null)
-                                    continue;
-                                if (objects.Add(obj)) {
-                                    changed = true;
-                                }
-                            }
-
-                            foreach (var @object in objects) {
-                                ReadObject(@object);
-                            }
-                        }
-                    }
-                }
-
-                if (errors.Count > 0) {
-                    return Failure;
-                }
-
-                ResolveExternals();
-                if (errors.Count > 0)
-                    return Failure;
-
-                SaveTargetFile(targetName, makeDataSegment);
-
-                var symbolFileName = directory + Path.DirectorySeparatorChar +
-                                     Path.GetFileNameWithoutExtension(targetName) + ".symbols.txt";
-                SaveSymbolFile(symbolFileName);
-
-                return errors.Count <= 0 ? Success : Failure;
-            }
-            catch (Error e) {
-                Console.Error.WriteLine(e.Message);
+    public int Main(NormalArgument normalArgument, bool makeDataSegment)
+    {
+        try {
+            var args = normalArgument.Values;
+            var index = 0;
+            if (index >= args.Count) {
+                Console.Error.WriteLine("No target file.");
                 return Failure;
             }
-        }
 
-        private void ParseAddresses(IReadOnlyList<string> args, ref int index)
-        {
-            if (index >= args.Count) {
-                throw new Error("No code address.");
+            targetName = args[index++];
+            var directory = Path.GetDirectoryName(targetName);
+            if (string.IsNullOrEmpty(directory)) {
+                directory = Directory.GetCurrentDirectory();
             }
-            var arg0 = args[index++];
-            if (!ParseAddress(arg0, AddressType.Code)) {
-                throw new InvalidAddress(arg0);
-            }
+
+            ParseAddresses(args, ref index);
 
             if (index >= args.Count) {
-                throw new Error("No data address.");
-            }
-            var arg1 = args[index++];
-            if (!ParseAddress(arg1, AddressType.Data)) {
-                throw new InvalidAddress(arg1);
+                Console.Error.WriteLine("No object file.");
+                return Failure;
             }
 
-            if (ParseAddress(args[index], AddressType.ZeroPage)) {
-                ++index;
-            }
-        }
-
-        protected bool ParseAddress(string s, AddressType addressType)
-        {
-            var elements = s.Split(',', StringSplitOptions.RemoveEmptyEntries);
-            foreach (var element in elements) {
-                var addressees = element.Split('-', StringSplitOptions.RemoveEmptyEntries);
-                if (addressees.Length <= 0) continue;
-                if (!int.TryParse(addressees[0], NumberStyles.AllowHexSpecifier, null, out var minAddress)) return false;
-                int? maxAddress = null;
-                if (addressees.Length > 1) {
-                    if (!int.TryParse(addressees[1], NumberStyles.AllowHexSpecifier, null, out var result)) {
-                        throw new InvalidAddress(s);
-                    }
-                    maxAddress = result;
+            var libraries = new List<Library.Library>();
+            while (index < args.Count) {
+                var objName = args[index++];
+                var objDirectory = Path.GetDirectoryName(objName);
+                if (string.IsNullOrEmpty(objDirectory)) {
+                    objName = directory + Path.DirectorySeparatorChar + objName;
                 }
-                segments[addressType].Add(minAddress, maxAddress);
-                if (minAddress >= 0x10000 || maxAddress is >= 0x10000) {
-                    hexDigitCount = 5;
+                var extension = Path.GetExtension(objName);
+                if (extension.ToLower() == Library.Library.Extension) {
+                    var library = new Library.Library();
+                    library.Load(objName);
+                    libraries.Add(library);
+                }
+                else {
+                    ReadObject(objName);
                 }
             }
-            return true;
-        }
-
-        protected abstract byte[] ToBytes(int value, int size);
-
-        private void ShowError(string error)
-        {
-            errors.Add(error);
-            Console.Error.WriteLine(error);
-        }
-
-        private void RegisterSymbol(string name, Address address, Assembler.Object obj)
-        {
-            var id = identifiers.Add(name);
-            if (symbols.TryGetValue(id, out var symbol)) {
-                if (symbol.Address.Type == AddressType.External) {
-                    if (address.Type != AddressType.External) {
-                        symbol.Address = address;
-                    }
-                }
-                else if (address.Type != AddressType.External) {
-                    ShowError("Duplicated symbol: " + name + "\n\t" + symbol.Object.Name + "\n\t" + obj.Name);
-                }
-            }
-            else {
-                symbols[id] = new Symbol(id, address, obj);
-            }
-        }
-
-        private void FixAddress(Address location, Address value, int offset, AddressPart part, bool relative)
-        {
-            Debug.Assert(SegmentAddressTypes.Contains(location.Type));
-            Debug.Assert(SegmentAddressTypes.Contains(value.Type));
-            var address = value.Value;
-            //if (value.Type >= 0) {
-            //    address = segments[value.Type].FixedAddress(address);
-            //}
-
-            var addedValue = address + offset;
-            switch (part) {
-                case AddressPart.Word:
-                    if (relative) {
-                        addedValue -= location.Value + 2;
-                    }
-                    segments[location.Type].WriteBytes(location.Value, ToBytes(addedValue, 2));
-                    break;
-                case AddressPart.LowByte:
-                    if (relative) {
-                        addedValue -= location.Value + 1;
-                    }
-                    segments[location.Type].WriteByte(location.Value, (byte)(addedValue & 0xff));
-                    break;
-                case AddressPart.HighByte:
-                    if (relative) {
-                        addedValue -= location.Value + 1;
-                    }
-                    segments[location.Type].WriteByte(location.Value, (byte)((addedValue >> 8) & 0xff));
-                    break;
-                case AddressPart.TByte:
-                    if (relative) {
-                        if (addedValue >= 0x8000) {
-                            addedValue = -(0x8000 - addedValue);
+            {
+                var changed = true;
+                while (changed) {
+                    changed = false;
+                    foreach (var library in libraries) {
+                        var objects = new HashSet<Assembler.Object>();
+                        foreach (var external in externals.Select(pair => pair.Value)) {
+                            if (symbols.TryGetValue(external.Id, out _))
+                                continue;
+                            var name = identifiers.FromId(external.Id);
+                            Debug.Assert(name != null);
+                            var obj = library.NameToObject(name);
+                            if (obj == null)
+                                continue;
+                            if (objects.Add(obj)) {
+                                changed = true;
+                            }
                         }
-                        addedValue -= location.Value + 3;
+
+                        foreach (var @object in objects) {
+                            ReadObject(@object);
+                        }
                     }
-                    segments[location.Type].WriteBytes(location.Value, ToBytes(addedValue, 3));
+                }
+            }
+
+            if (errors.Count > 0) {
+                return Failure;
+            }
+
+            ResolveExternals();
+            if (errors.Count > 0)
+                return Failure;
+
+            SaveTargetFile(targetName, makeDataSegment);
+
+            var symbolFileName = directory + Path.DirectorySeparatorChar +
+                                 Path.GetFileNameWithoutExtension(targetName) + ".symbols.txt";
+            SaveSymbolFile(symbolFileName);
+
+            return errors.Count <= 0 ? Success : Failure;
+        }
+        catch (Error e) {
+            Console.Error.WriteLine(e.Message);
+            return Failure;
+        }
+    }
+
+    private void ParseAddresses(IReadOnlyList<string> args, ref int index)
+    {
+        if (index >= args.Count) {
+            throw new Error("No code address.");
+        }
+        var arg0 = args[index++];
+        if (!ParseAddress(arg0, AddressType.Code)) {
+            throw new InvalidAddress(arg0);
+        }
+
+        if (index >= args.Count) {
+            throw new Error("No data address.");
+        }
+        var arg1 = args[index++];
+        if (!ParseAddress(arg1, AddressType.Data)) {
+            throw new InvalidAddress(arg1);
+        }
+
+        if (ParseAddress(args[index], AddressType.ZeroPage)) {
+            ++index;
+        }
+    }
+
+    protected bool ParseAddress(string s, AddressType addressType)
+    {
+        var elements = s.Split(',', StringSplitOptions.RemoveEmptyEntries);
+        foreach (var element in elements) {
+            var addressees = element.Split('-', StringSplitOptions.RemoveEmptyEntries);
+            if (addressees.Length <= 0) continue;
+            if (!int.TryParse(addressees[0], NumberStyles.AllowHexSpecifier, null, out var minAddress)) return false;
+            int? maxAddress = null;
+            if (addressees.Length > 1) {
+                if (!int.TryParse(addressees[1], NumberStyles.AllowHexSpecifier, null, out var result)) {
+                    throw new InvalidAddress(s);
+                }
+                maxAddress = result;
+            }
+            segments[addressType].Add(minAddress, maxAddress);
+            if (minAddress >= 0x10000 || maxAddress is >= 0x10000) {
+                hexDigitCount = 5;
+            }
+        }
+        return true;
+    }
+
+    protected abstract byte[] ToBytes(int value, int size);
+
+    private void ShowError(string error)
+    {
+        errors.Add(error);
+        Console.Error.WriteLine(error);
+    }
+
+    private void RegisterSymbol(string name, Address address, Assembler.Object obj)
+    {
+        var id = identifiers.Add(name);
+        if (symbols.TryGetValue(id, out var symbol)) {
+            if (symbol.Address.Type == AddressType.External) {
+                if (address.Type != AddressType.External) {
+                    symbol.Address = address;
+                }
+            }
+            else if (address.Type != AddressType.External) {
+                ShowError("Duplicated symbol: " + name + "\n\t" + symbol.Object.Name + "\n\t" + obj.Name);
+            }
+        }
+        else {
+            symbols[id] = new Symbol(id, address, obj);
+        }
+    }
+
+    private void FixAddress(Address location, Address value, int offset, AddressPart part, bool relative)
+    {
+        Debug.Assert(SegmentAddressTypes.Contains(location.Type));
+        Debug.Assert(SegmentAddressTypes.Contains(value.Type));
+        var address = value.Value;
+        //if (value.Type >= 0) {
+        //    address = segments[value.Type].FixedAddress(address);
+        //}
+
+        var addedValue = address + offset;
+        switch (part) {
+            case AddressPart.Word:
+                if (relative) {
+                    addedValue -= location.Value + 2;
+                }
+                segments[location.Type].WriteBytes(location.Value, ToBytes(addedValue, 2));
+                break;
+            case AddressPart.LowByte:
+                if (relative) {
+                    addedValue -= location.Value + 1;
+                }
+                segments[location.Type].WriteByte(location.Value, (byte)(addedValue & 0xff));
+                break;
+            case AddressPart.HighByte:
+                if (relative) {
+                    addedValue -= location.Value + 1;
+                }
+                segments[location.Type].WriteByte(location.Value, (byte)((addedValue >> 8) & 0xff));
+                break;
+            case AddressPart.TribleByte:
+                if (relative) {
+                    if (addedValue >= 0x8000) {
+                        addedValue = -(0x8000 - addedValue);
+                    }
+                    addedValue -= location.Value + 3;
+                }
+                segments[location.Type].WriteBytes(location.Value, ToBytes(addedValue, 3));
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
+        }
+    }
+
+    private void ReadObject(string fileName)
+    {
+        if (!File.Exists(fileName)) {
+            ShowError("File not found: " + fileName);
+            return;
+        }
+
+        var obj = new Assembler.Object();
+        obj.Load(fileName);
+
+        ReadObject(obj);
+    }
+
+    private void ReadObject(Assembler.Object obj)
+    {
+        var heads = new Dictionary<AddressType, int>();
+        foreach (var objSegment in obj.Segments) {
+            segments[objSegment.Type].Append(objSegment);
+            heads[objSegment.Type] = segments[objSegment.Type].HeadAddress;
+        }
+        foreach (var objSymbol in obj.Symbols.Values) {
+            var address = objSymbol.Address;
+            var name = objSymbol.Name;
+            switch (address.Type) {
+                case AddressType.Undefined:
+                case AddressType.External:
+                    //Debug.Assert(false);
+                    break;
+                case AddressType.Const:
+                    RegisterSymbol(name, address, obj);
                     break;
                 default:
-                    throw new ArgumentOutOfRangeException();
+                    Debug.Assert(SegmentAddressTypes.Contains(address.Type));
+                    Debug.Assert(address != null);
+                    address = address.Add(heads[address.Type]);
+                    RegisterSymbol(name, address, obj);
+                    break;
             }
         }
-
-        private void ReadObject(string fileName)
-        {
-            if (!File.Exists(fileName)) {
-                ShowError("File not found: " + fileName);
-                return;
+        foreach (var addressUsage in obj.AddressUsages) {
+            var location = addressUsage.Key;
+            Debug.Assert(SegmentAddressTypes.Contains(location.Type));
+            Debug.Assert(location != null);
+            location = location.Add(heads[location.Type]);
+            var value = addressUsage.Value;
+            if (value.Type == AddressType.External) {
+                Debug.Assert(value.Id != null);
+                var name = obj.NameFromId(value.Id.Value);
+                var id = this.identifiers.Add(name);
+                externals[location] = new External(id, obj, value.Value, value.Part, value.Relative);
             }
-
-            var obj = new Assembler.Object();
-            obj.Load(fileName);
-
-            ReadObject(obj);
-        }
-
-        private void ReadObject(Assembler.Object obj)
-        {
-            var heads = new Dictionary<AddressType, int>();
-            foreach (var objSegment in obj.Segments) {
-                segments[objSegment.Type].Append(objSegment);
-                heads[objSegment.Type] = segments[objSegment.Type].HeadAddress;
-            }
-            foreach (var objSymbol in obj.Symbols.Values) {
-                var address = objSymbol.Address;
-                var name = objSymbol.Name;
-                switch (address.Type) {
-                    case AddressType.Undefined:
-                    case AddressType.External:
-                        //Debug.Assert(false);
-                        break;
-                    case AddressType.Const:
-                        RegisterSymbol(name, address, obj);
-                        break;
-                    default:
-                        Debug.Assert(SegmentAddressTypes.Contains(address.Type));
-                        Debug.Assert(address != null);
-                        address = address.Add(heads[address.Type]);
-                        RegisterSymbol(name, address, obj);
-                        break;
-                }
-            }
-            foreach (var addressUsage in obj.AddressUsages) {
-                var location = addressUsage.Key;
-                Debug.Assert(SegmentAddressTypes.Contains(location.Type));
-                Debug.Assert(location != null);
-                location = location.Add(heads[location.Type]);
-                var value = addressUsage.Value;
-                if (value.Type == AddressType.External) {
-                    Debug.Assert(value.Id != null);
-                    var name = obj.NameFromId(value.Id.Value);
-                    var id = this.identifiers.Add(name);
-                    externals[location] = new External(id, obj, value.Value, value.Part, value.Relative);
-                }
-                else {
-                    Debug.Assert(SegmentAddressTypes.Contains(value.Type));
-                    var head = heads[value.Type];
-                    var added = value.Add(head);
-                    FixAddress(location, added, 0, added.Part, false);
-                }
+            else {
+                Debug.Assert(SegmentAddressTypes.Contains(value.Type));
+                var head = heads[value.Type];
+                var added = value.Add(head);
+                FixAddress(location, added, 0, added.Part, false);
             }
         }
+    }
 
-        private void ResolveExternals()
-        {
-            var messages = new HashSet<string>();
-            foreach (var (key, external) in externals) {
-                if (symbols.TryGetValue(external.Id, out var symbol)) {
-                    var name = identifiers.FromId(external.Id);
-                    FixAddress(key, symbol.Address, external.Offset, external.Part, external.Relative);
-                }
-                else {
-                    var name = identifiers.FromId(external.Id);
-                    messages.Add("Undefined external: " + name + " in " + external.Object.Name);
-                }
+    private void ResolveExternals()
+    {
+        var messages = new HashSet<string>();
+        foreach (var (key, external) in externals) {
+            if (symbols.TryGetValue(external.Id, out var symbol)) {
+                var name = identifiers.FromId(external.Id);
+                FixAddress(key, symbol.Address, external.Offset, external.Part, external.Relative);
             }
-            foreach (var message in messages) {
-                ShowError(message);
+            else {
+                var name = identifiers.FromId(external.Id);
+                messages.Add("Undefined external: " + name + " in " + external.Object.Name);
             }
         }
-
-
-        private void SaveTargetFile(string fileName, bool makeDataSegment)
-        {
-            var ext = Path.GetExtension(fileName).ToUpper();
-            SaveTargetFile(fileName, ext, makeDataSegment);
+        foreach (var message in messages) {
+            ShowError(message);
         }
+    }
 
-        private static void PrintColumn(TextWriter writer, string s, int maxLength)
-        {
-            writer.Write(s);
-            var n = maxLength + 2 - s.Length;
-            for (var i = 0; i < n; ++i) {
-                writer.Write(' ');
-            }
+
+    private void SaveTargetFile(string fileName, bool makeDataSegment)
+    {
+        var ext = Path.GetExtension(fileName).ToUpper();
+        SaveTargetFile(fileName, ext, makeDataSegment);
+    }
+
+    private static void PrintColumn(TextWriter writer, string s, int maxLength)
+    {
+        writer.Write(s);
+        var n = maxLength + 2 - s.Length;
+        for (var i = 0; i < n; ++i) {
+            writer.Write(' ');
         }
+    }
 
-        public static string ToHex(int value, int length)
-        {
-            var hex = value.ToString("X" + length);
-            if (hex.Length > length) {
-                hex = hex[^length..];
-            }
-            return hex;
+    public static string ToHex(int value, int length)
+    {
+        var hex = value.ToString("X" + length);
+        if (hex.Length > length) {
+            hex = hex[^length..];
         }
+        return hex;
+    }
 
-        private void SaveSymbolFile(string fileName)
-        {
-            var addressColumnLength = hexDigitCount + 1;
-            using var stream = new StreamWriter(fileName, false, Encoding.UTF8);
-            var maxNameLength = 0;
-            var maxFileNameLength = 0;
-            var nameIndexedSymbols = new SortedDictionary<string, Symbol>();
-            foreach (var pair in symbols) {
-                var name = identifiers.FromId(pair.Key);
-                Debug.Assert(name != null);
-                Debug.Assert(pair.Value.Object.Name != null);
-                var objName = pair.Value.Object.Name;
-                maxNameLength = Math.Max(name.Length, maxNameLength);
-                maxFileNameLength = Math.Max(objName.Length, maxFileNameLength);
-                nameIndexedSymbols[name] = pair.Value;
-            }
-            PrintColumn(stream, "Symbol", maxNameLength);
-            PrintColumn(stream, "Value", addressColumnLength);
-            PrintColumn(stream, "File", maxNameLength);
+    private void SaveSymbolFile(string fileName)
+    {
+        var addressColumnLength = hexDigitCount + 1;
+        using var stream = new StreamWriter(fileName, false, Encoding.UTF8);
+        var maxNameLength = 0;
+        var maxFileNameLength = 0;
+        var nameIndexedSymbols = new SortedDictionary<string, Symbol>();
+        foreach (var pair in symbols) {
+            var name = identifiers.FromId(pair.Key);
+            Debug.Assert(name != null);
+            Debug.Assert(pair.Value.Object.Name != null);
+            var objName = pair.Value.Object.Name;
+            maxNameLength = Math.Max(name.Length, maxNameLength);
+            maxFileNameLength = Math.Max(objName.Length, maxFileNameLength);
+            nameIndexedSymbols[name] = pair.Value;
+        }
+        PrintColumn(stream, "Symbol", maxNameLength);
+        PrintColumn(stream, "Value", addressColumnLength);
+        PrintColumn(stream, "File", maxNameLength);
+        stream.WriteLine();
+        for (var i = 0; i < (maxNameLength + addressColumnLength + maxFileNameLength) * 4 / 3; ++i) {
+            stream.Write('=');
+        }
+        stream.WriteLine();
+        foreach (var (name, value) in nameIndexedSymbols) {
+            Debug.Assert(value.Object.Name != null);
+            var objName = value.Object.Name;
+            var address = value.Address;
+
+            var addressValue = address.Value;
+            PrintColumn(stream, name, maxNameLength);
+            PrintColumn(stream, ToHex(addressValue, hexDigitCount), addressColumnLength);
+            PrintColumn(stream, objName, maxFileNameLength);
             stream.WriteLine();
-            for (var i = 0; i < (maxNameLength + addressColumnLength + maxFileNameLength) * 4 / 3; ++i) {
-                stream.Write('=');
-            }
+        }
+
+        stream.WriteLine();
+        foreach (var addressType in SegmentAddressTypes) {
+            var segment = segments[addressType];
+            if (segment.Empty) continue;
+            stream.Write(SegmentNames[addressType] + " ");
+            segment.PrintRanges(stream, hexDigitCount);
             stream.WriteLine();
-            foreach (var (name, value) in nameIndexedSymbols) {
-                Debug.Assert(value.Object.Name != null);
-                var objName = value.Object.Name;
-                var address = value.Address;
-
-                var addressValue = address.Value;
-                PrintColumn(stream, name, maxNameLength);
-                PrintColumn(stream, ToHex(addressValue, hexDigitCount), addressColumnLength);
-                PrintColumn(stream, objName, maxFileNameLength);
-                stream.WriteLine();
-            }
-
-            stream.WriteLine();
-            foreach (var addressType in SegmentAddressTypes) {
-                var segment = segments[addressType];
-                if (segment.Empty) continue;
-                stream.Write(SegmentNames[addressType] + " ");
-                segment.PrintRanges(stream, hexDigitCount);
-                stream.WriteLine();
-            }
         }
+    }
 
-        protected void SaveTargetFile(string fileName, string ext, bool makeDataSegment)
+    protected void SaveTargetFile(string fileName, string ext, bool makeDataSegment)
+    {
         {
-            {
-                var codeSegment = segments[AddressType.Code];
-                codeSegment.Fill();
-                using var targetFile = ToTargetFile(fileName, ext);
-                targetFile.Write(codeSegment.MinAddress, codeSegment.Bytes.ToArray());
-            }
-            if (makeDataSegment) {
-                var dataSegment = segments[AddressType.Data];
-                dataSegment.Fill();
-                using var targetFile = ToTargetFile(Path.GetFileNameWithoutExtension(fileName)  + ".dseg"+ ext, ext);
-                targetFile.Write(dataSegment.MinAddress, dataSegment.Bytes.ToArray());
-            }
+            var codeSegment = segments[AddressType.Code];
+            codeSegment.Fill();
+            using var targetFile = ToTargetFile(fileName, ext);
+            targetFile.Write(codeSegment.MinAddress, codeSegment.Bytes.ToArray());
         }
+        if (makeDataSegment) {
+            var dataSegment = segments[AddressType.Data];
+            dataSegment.Fill();
+            using var targetFile = ToTargetFile(Path.GetFileNameWithoutExtension(fileName)  + ".dseg"+ ext, ext);
+            targetFile.Write(dataSegment.MinAddress, dataSegment.Bytes.ToArray());
+        }
+    }
 
-        protected virtual TargetFile ToTargetFile(string fileName, string ext)
+    protected virtual TargetFile ToTargetFile(string fileName, string ext)
+    {
+        return ext switch
         {
-            return ext switch
-            {
-                ".CMT" => new CmtFile(fileName),
-                ".P6" => new P6File(fileName),
-                ".MZT" => new MztFile(fileName),
-                ".CAS" => new CasFile(fileName),
-                ".RAM" => new RamPakFile(fileName),
-                ".HEX" => new HexFile(fileName),
-                ".PRG" => new PrgFile(fileName),
-                ".CJR" => new CjrFile(fileName),
-                ".L3" => new Level3File(fileName),
-                ".T64" => new T64File(fileName),
-                ".C10" => new C10File(fileName),
-                ".S" => new SRecordFile(fileName),
-                ".PBF" => new PbFile(fileName),
-                _ => new BinFile(fileName)
-            };
-        }
+            ".CMT" => new CmtFile(fileName),
+            ".P6" => new P6File(fileName),
+            ".MZT" => new MztFile(fileName),
+            ".CAS" => new CasFile(fileName),
+            ".RAM" => new RamPakFile(fileName),
+            ".HEX" => new HexFile(fileName),
+            ".PRG" => new PrgFile(fileName),
+            ".CJR" => new CjrFile(fileName),
+            ".L3" => new Level3File(fileName),
+            ".T64" => new T64File(fileName),
+            ".C10" => new C10File(fileName),
+            ".S" => new SRecordFile(fileName),
+            ".PBF" => new PbFile(fileName),
+            _ => new BinFile(fileName)
+        };
     }
 }
