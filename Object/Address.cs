@@ -14,7 +14,7 @@ namespace Inu.Assembler
     public enum AddressPart
     {
         Word, LowByte, HighByte,
-        TribleByte
+        TripleByte, DoubleWord
     }
 
     public class Address : IComparable<Address>
@@ -69,7 +69,7 @@ namespace Inu.Assembler
                 Part = (AddressPart)stream.ReadByte();
             }
 
-            if (Part == AddressPart.TribleByte && Value >= 0x8000)
+            if (Part == AddressPart.TripleByte && Value >= 0x8000)
             {
                 Value -= 0x10000;
             }

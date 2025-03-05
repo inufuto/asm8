@@ -172,6 +172,9 @@ public abstract class Linker
             if (minAddress >= 0x10000 || maxAddress is >= 0x10000) {
                 hexDigitCount = 5;
             }
+            if (minAddress >= 0x100000 || maxAddress is >= 0x100000) {
+                hexDigitCount = 6;
+            }
         }
         return true;
     }
@@ -231,7 +234,7 @@ public abstract class Linker
                 }
                 segments[location.Type].WriteByte(location.Value, (byte)((addedValue >> 8) & 0xff));
                 break;
-            case AddressPart.TribleByte:
+            case AddressPart.TripleByte:
                 if (relative) {
                     if (addedValue >= 0x8000) {
                         addedValue = -(0x8000 - addedValue);
@@ -239,6 +242,12 @@ public abstract class Linker
                     addedValue -= location.Value + 3;
                 }
                 segments[location.Type].WriteBytes(location.Value, ToBytes(addedValue, 3));
+                break;
+            case AddressPart.DoubleWord:
+                if (relative) {
+                    addedValue -= location.Value + 4;
+                }
+                segments[location.Type].WriteBytes(location.Value, ToBytes(addedValue, 4));
                 break;
             default:
                 throw new ArgumentOutOfRangeException();

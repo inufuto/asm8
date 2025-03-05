@@ -21,9 +21,9 @@ public abstract class Assembler : TokenReader
     private int nextAutoLabelId;
     private readonly Stack<Block> blocks = new();
 
-    protected Assembler(Language.Tokenizer tokenizer, int addressBitCount) : base(tokenizer)
+    protected Assembler(Language.Tokenizer tokenizer) : base(tokenizer)
     {
-        @object = new Object(addressBitCount);
+        @object = new Object();
         CurrentSegment = @object.Segments[0];
     }
 
@@ -111,7 +111,7 @@ public abstract class Assembler : TokenReader
     protected void WriteByte(Token token, Address value)
     {
         if (value.IsRelocatable() || value.Type == AddressType.External) {
-            if (value.Part == AddressPart.TribleByte) {
+            if (value.Part == AddressPart.TripleByte) {
                 value = value.PartOf(AddressPart.Word);
             }
             if (value.Part == AddressPart.Word) {
@@ -130,7 +130,7 @@ public abstract class Assembler : TokenReader
     protected void WriteWord(Token token, Address value)
     {
         if (value.IsRelocatable() || value.Type == AddressType.External) {
-            if (value.Part == AddressPart.TribleByte) {
+            if (value.Part != AddressPart.Word) {
                 value = value.PartOf(AddressPart.Word);
             }
             Debug.Assert(value.Part == AddressPart.Word);
@@ -167,6 +167,46 @@ public abstract class Assembler : TokenReader
             ShowAddressUsageError(token);
         }
         var bytes = ToBytes(value.Value, 3);
+        foreach (var b in bytes) {
+            WriteByte(b);
+        }
+    }
+
+    protected void WriteTripleByte(Token token, Address value)
+    {
+        if (value.IsRelocatable() || value.Type == AddressType.External) {
+            value = value.PartOf(AddressPart.TripleByte);
+            @object.AddressUsages[CurrentAddress] = value;
+        }
+        else if (!value.IsConst()) {
+            ShowAddressUsageError(token);
+        }
+        WriteTripleByte(value.Value);
+    }
+
+    protected void WriteTripleByte(int value)
+    {
+        var bytes = ToBytes(value, 3);
+        foreach (var b in bytes) {
+            WriteByte(b);
+        }
+    }
+
+    protected void WriteDoubleWord(Token token, Address value)
+    {
+        if (value.IsRelocatable() || value.Type == AddressType.External) {
+            Debug.Assert(value.Part == AddressPart.DoubleWord);
+            @object.AddressUsages[CurrentAddress] = value;
+        }
+        else if (!value.IsConst()) {
+            ShowAddressUsageError(token);
+        }
+        WriteDoubleWord(value.Value);
+    }
+
+    protected void WriteDoubleWord(int value)
+    {
+        var bytes = ToBytes(value, 4);
         foreach (var b in bytes) {
             WriteByte(b);
         }
@@ -660,7 +700,7 @@ public abstract class Assembler : TokenReader
         return RelativeOffset(token, address, instructionLength, IsRelativeOffsetInRange, out offset);
     }
 
-    private bool RelativeOffset(Token token, Address address, int instructionLength, Func<int, bool> inRange, out int offset)
+    protected bool RelativeOffset(Token token, Address address, int instructionLength, Func<int, bool> inRange, out int offset)
     {
         offset = 0;
         switch (address.Type) {
@@ -800,7 +840,7 @@ public abstract class Assembler : TokenReader
 
 public abstract class LittleEndianAssembler : Assembler
 {
-    protected LittleEndianAssembler(Language.Tokenizer tokenizer, int addressChanged = 16) : base(tokenizer, addressChanged) { }
+    protected LittleEndianAssembler(Language.Tokenizer tokenizer, int addressChanged = 16) : base(tokenizer) { }
 
     protected override byte[] ToBytes(int value, int size)
     {
@@ -815,7 +855,7 @@ public abstract class LittleEndianAssembler : Assembler
 
 public abstract class BigEndianAssembler : Assembler
 {
-    protected BigEndianAssembler(Language.Tokenizer tokenizer, int addressChanged = 16) : base(tokenizer, addressChanged) { }
+    protected BigEndianAssembler(Language.Tokenizer tokenizer, int addressChanged = 16) : base(tokenizer) { }
 
     protected override byte[] ToBytes(int value, int size)
     {

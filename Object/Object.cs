@@ -6,22 +6,17 @@ using Inu.Language;
 
 namespace Inu.Assembler
 {
-    public class Object
+    public class Object(string? fileName)
     {
         private const int Version = 0x0100;
         public const string Extension = ".obj";
 
-        public string? Name { get; private set; }
+        public string? Name { get; private set; } = Path.GetFileName(fileName);
         public readonly Segment[] Segments = { new(AddressType.Code), new(AddressType.Data), new(AddressType.ZeroPage) };
         public readonly Dictionary<int, Symbol> Symbols = new();
         public readonly Dictionary<Address, Address> AddressUsages = new();
 
-        public Object(string? fileName)
-        {
-            Name = Path.GetFileName(fileName);
-        }
-
-        public Object(int addressBitCount = 16) : this(null) { }
+        public Object() : this(null) { }
 
 
         public void Save(string fileName)
