@@ -1,9 +1,6 @@
 ﻿using Inu.Language;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-using System.Drawing;
-using System.Net;
-using static Inu.Language.Tokenizer;
 
 namespace Inu.Assembler.Tlcs900;
 
@@ -40,7 +37,7 @@ internal class Assembler(bool shortAddress) : LittleEndianAssembler(new Tokenize
 
     private bool IsWord(Address address)
     {
-        return (address.IsConst() && IsWord(address.Value)) || shortAddress;
+        return address.IsConst() ? IsWord(address.Value) : shortAddress;
     }
 
 
@@ -503,7 +500,7 @@ internal class Assembler(bool shortAddress) : LittleEndianAssembler(new Tokenize
                             var sourceRegularRegister = ToRegularRegisterSurely(token, sourceRegister.Value, sourceSize);
                             var sizeBits = SizeBits2(sourceSize);
                             // LD (mem),R
-                            destinationAddressing.Write(this, 0b10110000, 0);
+                            destinationAddressing.Write(this, 0b10110000, sizeBits);
                             WriteByte(0b01000000 | (sizeBits << 4) | sourceRegularRegister);
                             return;
                         }
@@ -686,7 +683,7 @@ internal class Assembler(bool shortAddress) : LittleEndianAssembler(new Tokenize
                                 var destinationAddress = destinationAbsoluteAddressing.Address;
                                 if (IsWord(destinationAddress)) {
                                     // LDW (#16),(mem)
-                                    sourceAddressing.Write(this, 0b10010000, 0);
+                                    sourceAddressing.Write(this, 0b10010000, 1);
                                     WriteByte(0b00011001);
                                     WriteWord(destinationAbsoluteAddressing.Token, destinationAbsoluteAddressing.Address);
                                     return;
@@ -696,7 +693,7 @@ internal class Assembler(bool shortAddress) : LittleEndianAssembler(new Tokenize
                                 var sourceAddress = sourceAbsoluteAddressing.Address;
                                 if (IsWord(sourceAddress)) {
                                     // LDW (mem),(#16)
-                                    destinationAddressing.Write(this, 0b10110000, 0);
+                                    destinationAddressing.Write(this, 0b10110000, 1);
                                     WriteByte(0b00010110);
                                     WriteWord(sourceAbsoluteAddressing.Token, sourceAbsoluteAddressing.Address);
                                     return;
@@ -722,7 +719,7 @@ internal class Assembler(bool shortAddress) : LittleEndianAssembler(new Tokenize
                                 }
                             }
                             // LDW (mem),#
-                            destinationAddressing.Write(this, 0b10110000, 0);
+                            destinationAddressing.Write(this, 0b10110000, 1);
                             WriteByte(0b00000010);
                             WriteWord(valueToken, value);
                             return;
@@ -1402,7 +1399,7 @@ internal class Assembler(bool shortAddress) : LittleEndianAssembler(new Tokenize
             {
                 var value = ConstantExpression();
                 if (value != null) {
-                    if (destinationSize == OperandSize.Word) {
+                    if (destinationSize == OperandSize.Byte) {
                         // rr,# ; byte
                         WriteRegisterCode(0b11001000, destinationRegister.Value, destinationSize);
                         WriteByte(0b00001000 | code);
@@ -1722,7 +1719,7 @@ internal class Assembler(bool shortAddress) : LittleEndianAssembler(new Tokenize
             var token = LastToken;
             var count = ConstantExpression();
             if (count != null) {
-                if (count is < 0 or > 7) {
+                if (count is < 0 or > 15) {
                     ShowOutOfRange(token, count.Value);
                 }
                 AcceptReservedWord(',');
@@ -1965,7 +1962,7 @@ internal class Assembler(bool shortAddress) : LittleEndianAssembler(new Tokenize
     private void StartIf(IfBlock block)
     {
         var address = SymbolAddress(block.ElseId);
-        ConditionalJump(address, 0x1000);
+        ConditionalJump(address, 0b1000);
     }
 
 
