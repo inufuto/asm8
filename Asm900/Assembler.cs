@@ -4,10 +4,8 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace Inu.Assembler.Tlcs900;
 
-internal class Assembler(bool shortAddress) : LittleEndianAssembler(new Tokenizer())
+internal class Assembler() : LittleEndianAssembler(new Tokenizer())
 {
-    private readonly bool shortAddress = shortAddress;
-
     private int? ConstantExpression()
     {
         var token = LastToken;
@@ -37,7 +35,7 @@ internal class Assembler(bool shortAddress) : LittleEndianAssembler(new Tokenize
 
     private bool IsWord(Address address)
     {
-        return address.IsConst() ? IsWord(address.Value) : shortAddress;
+        return address.IsConst() && IsWord(address.Value);
     }
 
 
@@ -365,14 +363,8 @@ internal class Assembler(bool shortAddress) : LittleEndianAssembler(new Tokenize
                 }
             }
             else {
-                if (a.shortAddress) {
-                    a.WriteByte(code | 0b01000001);
-                    a.WriteWord(Token, Address);
-                }
-                else {
-                    a.WriteByte(code | 0b01000010);
-                    a.WriteTripleByte(Token, Address);
-                }
+                a.WriteByte(code | 0b01000010);
+                a.WriteTripleByte(Token, Address);
             }
         }
     }
@@ -1399,15 +1391,15 @@ internal class Assembler(bool shortAddress) : LittleEndianAssembler(new Tokenize
             {
                 var value = ConstantExpression();
                 if (value != null) {
-                    if (destinationSize == OperandSize.Byte) {
+                    if (destinationSize == OperandSize.Word) {
                         // rr,# ; byte
-                        WriteRegisterCode(0b11001000, destinationRegister.Value, destinationSize);
+                        WriteRegisterCode(0b11001000, destinationRegister.Value, OperandSize.Byte);
                         WriteByte(0b00001000 | code);
                         WriteByte(value.Value);
                         return;
                     }
                     // rr,# ; word
-                    WriteRegisterCode(0b11011000, destinationRegister.Value, destinationSize);
+                    WriteRegisterCode(0b11011000, destinationRegister.Value, OperandSize.Word);
                     WriteByte(0b00001000 | code);
                     WriteWord(value.Value);
                     return;

@@ -12,15 +12,7 @@ internal class Program
 
     static int Main(string[] args)
     {
-        bool shortAddress = false;
-        var normalArgument = new NormalArgument(args, (option, value) =>
-        {
-            if (option == "MIN")
-            {
-                shortAddress = true;
-            }
-            return false;
-        });
-        return new Assembler(shortAddress).Main(normalArgument);
+        var normalArgument = new NormalArgument(args);
+        return new Assembler().Main(normalArgument);
     }
 }
