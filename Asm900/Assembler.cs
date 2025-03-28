@@ -1678,7 +1678,7 @@ internal class Assembler() : LittleEndianAssembler(new Tokenizer())
             if (size == OperandSize.DoubleWord) {
                 ShowInvalidRegister(token);
             }
-            WriteRegisterCode(0b11001000, register.Value, size);
+            WriteRegisterCodeZ1(0b11001000, register.Value, size);
             WriteByte(0b01110000 | conditionCode.Value);
             return;
         }
@@ -1895,13 +1895,13 @@ internal class Assembler() : LittleEndianAssembler(new Tokenizer())
         var length = ToRegularRegister(register.Value, size) != null ? 3 : 4;
         if (RelativeOffset(addressToken, address, length, IsSignedByte, out var offset)) {
             // djnz r,d8
-            WriteRegisterCode(0b11001000, register.Value, size);
+            WriteRegisterCodeZ1(0b11001000, register.Value, size);
             WriteByte(0b00011100);
             WriteByte(offset);
             return;
         }
         // dec 1,r
-        WriteRegisterCode(0b11001000, register.Value, size);
+        WriteRegisterCodeZ1(0b11001000, register.Value, size);
         WriteByte(0b01101001);
         if (RelativeOffset(addressToken, address, length, IsSignedWord, out offset)) {
             // jr nz,d16
