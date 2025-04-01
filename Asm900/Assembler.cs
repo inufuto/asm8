@@ -363,7 +363,7 @@ internal class Assembler() : LittleEndianAssembler(new Tokenizer())
                 }
             }
             else {
-                a.WriteByte(code | 0b01000010);
+                a.WriteByte(code | 0b01000010 | (sizeBits << 4));
                 a.WriteTripleByte(Token, Address);
             }
         }
