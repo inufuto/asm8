@@ -58,7 +58,7 @@ public class Assembler() : LittleEndianAssembler(new Tokenizer(), 20)
     }
 
     public override bool ZeroPageAvailable => true;
-    public override AddressPart PointerAddressPart => AddressPart.TribleByte;
+    public override AddressPart PointerAddressPart => AddressPart.TripleByte;
 
     protected override bool IsRelativeOffsetInRange(int offset)
     {
