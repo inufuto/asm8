@@ -302,7 +302,7 @@ internal class Assembler() : LittleEndianAssembler(new Tokenizer())
             var pointerRegularRegister = ToRegularRegister(pointerRegister, OperandSize.DoubleWord);
             if (IsSignedByte(offset) && pointerRegularRegister != null) {
                 // R32+d8
-                a.WriteByte(code | 0b00001000 | pointerRegularRegister.Value);
+                a.WriteByte(code | 0b00001000 | pointerRegularRegister.Value| (sizeBits<<4));
                 a.WriteByte(offset);
             }
             else {
@@ -1175,7 +1175,7 @@ internal class Assembler() : LittleEndianAssembler(new Tokenizer())
                             var destinationRegularRegister = ToRegularRegisterSurely(destinationToken, destinationRegister.Value, destinationSize);
                             AcceptReservedWord(')');
                             // R,(mem)
-                            addressing.Write(this, 0b10000000, SizeBits2(destinationSize));
+                            @addressing.Write(this, 0b10000000, SizeBits2(destinationSize));
                             WriteByte(0b10000000 | (code << 4) | destinationRegularRegister);
                             return;
                         }
