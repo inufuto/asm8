@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 namespace Inu.Assembler.Wdc65816;
 
-internal class Assembler() : Mos6502.Assembler(new Tokenizer())
+internal class Assembler(int version) : Mos6502.Assembler(version)
 {
     private enum RegisterMode
     {

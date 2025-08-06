@@ -6,8 +6,17 @@ namespace Inu.Assembler.Tms99
     {
         public static int Main(string[] args)
         {
-            var normalArgument = new NormalArgument(args);
-            return new Assembler().Main(normalArgument);
+            var version = 1;
+            var normalArgument = new NormalArgument(args, (option, value) =>
+            {
+                version = option switch
+                {
+                    "V2" => 2,
+                    _ => version
+                };
+                return false;
+            });
+            return new Assembler(version).Main(normalArgument);
         }
     }
 }

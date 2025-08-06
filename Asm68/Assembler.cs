@@ -1,15 +1,28 @@
 ﻿using Inu.Language;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 
 namespace Inu.Assembler.Mc6800
 {
     internal class Assembler : BigEndianAssembler
     {
-        public Assembler() : base(new Tokenizer()) { }
+        public Assembler(int version) : this(new Tokenizer(version), version) { }
 
-        protected Assembler(Inu.Assembler.Tokenizer tokenizer) : base(tokenizer) { }
+        protected Assembler(Inu.Assembler.Tokenizer tokenizer, int version) : base(tokenizer)
+        {
+            if (version >= 2)
+            {
+                IsByte=(Address value)=>value.IsByte() || value.Type==AddressType.ZeroPage;
+            }
+            else
+            {
+                IsByte = (Address value) => value.IsByte();
+            }
+        }
+
+        protected readonly Func<Address, bool> IsByte;
 
         private void TowModeInstruction(byte instruction)
         {
@@ -118,7 +131,7 @@ namespace Inu.Assembler.Mc6800
                 WriteByte(value);
                 return;
             }
-            if (direct || (!extended && address.IsByte())) {
+            if (direct || (!extended && IsByte(address))) {
                 //	direct
                 WriteByte(instruction | 0x10);
                 var value = address.Low();
@@ -130,6 +143,7 @@ namespace Inu.Assembler.Mc6800
             WriteByte(instruction | 0x30);
             WriteWord(LastToken, address);
         }
+
 
         protected readonly struct FourModeElement
         {

@@ -5,11 +5,8 @@ using System.Diagnostics;
 
 namespace Inu.Assembler.Z80;
 
-class Assembler : Inu.Assembler.LittleEndianAssembler
+internal class Assembler(int version) : Inu.Assembler.LittleEndianAssembler(new Tokenizer(version))
 {
-    public Assembler() : base(new Tokenizer()) { }
-
-
     private int? ByteExpression()
     {
         Debug.Assert(LastToken != null);

@@ -3,7 +3,7 @@ using System.Diagnostics;
 
 namespace Inu.Assembler.Sc62015;
 
-public class Assembler() : LittleEndianAssembler(new Tokenizer(), 20)
+public class Assembler(int version) : LittleEndianAssembler(new Tokenizer(version))
 {
     [Flags]
     private enum PreBytePurpose

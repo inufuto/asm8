@@ -1,13 +1,21 @@
 ﻿using Inu.Language;
 
-namespace Inu.Assembler.I8080
+namespace Inu.Assembler.I8080;
+
+internal class Program
 {
-    internal class Program
+    static int Main(string[] args)
     {
-        static int Main(string[] args)
+        var version = 1;
+        var normalArgument = new NormalArgument(args, (option, value) =>
         {
-            var normalArgument = new NormalArgument(args);
-            return new Assembler().Main(normalArgument);
-        }
+            version = option switch
+            {
+                "V2" => 2,
+                _ => version
+            };
+            return false;
+        });
+        return new Assembler(version).Main(normalArgument);
     }
 }

@@ -13,7 +13,7 @@ public abstract class Tokenizer
     protected class Backup : IDisposable
     {
         private readonly Tokenizer tokenizer;
-        private readonly List<char> chars = new List<char>();
+        private readonly List<char> chars = [];
 
         public Backup(Tokenizer tokenizer)
         {
@@ -42,9 +42,9 @@ public abstract class Tokenizer
 
     public char LastChar { get; private set; } = EndOfFile;
     private SourcePosition lastPosition;
-    private readonly Stack<char> lastChars = new Stack<char>();
-    private readonly Stack<char> returnedChars = new Stack<char>();
-    private readonly List<Backup> backups = new List<Backup>();
+    private readonly Stack<char> lastChars = new();
+    private readonly Stack<char> returnedChars = new();
+    private readonly List<Backup> backups = [];
 
     public virtual void OpenSourceFile(string fileName)
     {

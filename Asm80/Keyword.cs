@@ -193,7 +193,5 @@ internal class Keyword : Inu.Assembler.Keyword
         { Srl,"SRL"},
         { Sub,"SUB"},
         { Z,"Z"},
-
-
     };
 }
