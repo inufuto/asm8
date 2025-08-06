@@ -38,7 +38,7 @@ public class Object(string? fileName)
         var publicIds = publicSymbols.Select(s => s.Id).ToList();
         var externalIds = AddressUsages.Values.Where(address => address.IsExternal()).Select(a =>
         {
-            Debug.Assert(a.Id != null, "a.Id != null");
+            Debug.Assert(a.Id != null);
             return a.Id.Value;
         });
         var ids = publicIds.Union(externalIds).ToHashSet();
@@ -89,7 +89,7 @@ public class Object(string? fileName)
 
     public string NameFromId(int id)
     {
-        var symbol = FindPublicSymbol(id);
+        var symbol = Symbols.Values.FirstOrDefault(s => s.Id == id);
         Debug.Assert(symbol != null);
         return symbol.Name;
     }

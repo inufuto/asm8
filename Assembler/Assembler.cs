@@ -3,7 +3,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Inu.Assembler;
 
@@ -21,7 +20,7 @@ public abstract class Assembler : TokenReader
     private ListFile? listFile;
     private int nextAutoLabelId;
     private readonly Stack<Block> blocks = new();
-    private readonly Scope globalScope = new Scope(0, null);
+    private readonly Scope globalScope = new(0, null);
     private int scopeId;
     private Scope? currentScope;
 
@@ -40,14 +39,9 @@ public abstract class Assembler : TokenReader
         Debug.Assert(currentScope != null);
         var symbolKey = new SymbolKey(currentScope, id);
         var symbol = @object.FindPublicSymbol(id);
-        if (symbol is { Public: false }) {
+        if (symbol is not { Public: true }) {
             symbol = FindSymbol(symbolKey);
         }
-        //if (symbol != null) {
-        //    if (symbol.Public) {
-        //        int aaa = 111;
-        //    }
-        //}
         if (symbol == null) {
             string name;
             if (Identifier.IsIdentifierId(id)) {
@@ -179,21 +173,6 @@ public abstract class Assembler : TokenReader
     {
         for (var i = 0; i < value; ++i) {
             CurrentSegment.WriteByte(0);
-        }
-    }
-
-    protected void WritePointer(Token token, Address value)
-    {
-        if (value.IsRelocatable() || value.Type == AddressType.External) {
-            value = value.PartOf(PointerAddressPart);
-            @object.AddressUsages[CurrentAddress] = value;
-        }
-        else if (!value.IsConst()) {
-            ShowAddressUsageError(token);
-        }
-        var bytes = ToBytes(value.Value, 3);
-        foreach (var b in bytes) {
-            WriteByte(b);
         }
     }
 
@@ -500,7 +479,7 @@ public abstract class Assembler : TokenReader
                 var symbol = FindSymbol(identifier);
                 if (symbol is { Public: false }) {
                     symbol.Public = true;
-                    //addressChanged = true;
+                    addressChanged = true;
                 }
                 NextToken();
             }
