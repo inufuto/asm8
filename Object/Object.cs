@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using Inu.Language;
 
 namespace Inu.Assembler;
@@ -44,7 +45,8 @@ public class Object(string? fileName)
         var ids = publicIds.Union(externalIds).ToHashSet();
 
         stream.WriteWord(ids.Count);
-        foreach (var symbol in ids.Select(id => Symbols[new SymbolKey(new Scope(0, null), id)])) {
+        foreach (var id in ids) {
+            var symbol = Symbols.Values.First(s => s.Id == id);
             symbol.Write(stream);
         }
 
@@ -113,5 +115,10 @@ public class SymbolKey(Scope scope, int id)
     public override int GetHashCode()
     {
         return Id * 256 + Scope.Id;
+    }
+
+    public override string ToString()
+    {
+        return "[" + Scope.Id + ":" + id + "]";
     }
 }
