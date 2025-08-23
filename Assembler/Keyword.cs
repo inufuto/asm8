@@ -40,9 +40,11 @@ public class Keyword
     public const int While = MinId + 29;
     protected const int NextId1 = MinId + 30;
 
-    public const int SCOPE = NextId1 + 0;
-    public const int ENDSCOPE = NextId1 + 1;
-    protected const int NextId = NextId1 + 2;
+    public const int ENDSCOPE = NextId1 + 0;
+    public const int SCOPE = NextId1 + 1;
+    public const int ZEXT = NextId1 + 2;
+    public const int ZEXTRN = NextId1 + 3;
+    protected const int NextId = NextId1 + 4;
 
     public static readonly Dictionary<int, string> Words = new()
     {
@@ -80,8 +82,10 @@ public class Keyword
 
     public static readonly Dictionary<int, string> WordsV2 = new(Words)
     {
-        { SCOPE, "SCOPE" },
-        { ENDSCOPE, "ENDSCOPE" },
+        { ENDSCOPE,"ENDSCOPE"},
+        { SCOPE,"SCOPE"},
+        { ZEXT,"ZEXT"},
+        { ZEXTRN,"ZEXTRN"},
     };
 
     public static Dictionary<int, string> Append(Dictionary<int, string> words)

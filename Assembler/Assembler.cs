@@ -54,7 +54,7 @@ public abstract class Assembler : TokenReader
             return true;
         }
         if (symbol.Address == address) { return true; }
-        if (symbol.Pass == Pass || (symbol.Public && symbol.Scope.Id!=currentScope.Id)) {
+        if (symbol.Pass == Pass || (symbol.Public && symbol.Scope.Id != currentScope.Id)) {
             // duplicate
             return false;
         }
@@ -488,14 +488,20 @@ public abstract class Assembler : TokenReader
             }
         } while (LastToken.IsReservedWord(','));
     }
-    private void ExternDirective(AddressType type)
+    private void ExternDirective()
+    {
+        var addressPart = PointerAddressPart;
+        ExternDirective(addressPart);
+    }
+
+    private void ExternDirective(AddressPart addressPart)
     {
         Debug.Assert(LastToken != null);
         do {
             var token = NextToken();
             if (token is Identifier label) {
                 NextToken();
-                DefineSymbol(label, new Address(type, 0, label.Id, PointerAddressPart));
+                DefineSymbol(label, new Address(AddressType.External, 0, label.Id, addressPart));
             }
             else {
                 ShowMissingIdentifier(token.Position);
@@ -597,14 +603,13 @@ public abstract class Assembler : TokenReader
     }
     private bool AfterLabel(Identifier label)
     {
-        if (!(LastToken is ReservedWord reservedWord))
-            return false;
+        if (LastToken is not ReservedWord reservedWord) return false;
         switch (reservedWord.Id) {
             case Keyword.Equ:
                 EquDirective(label);
                 return true;
             default:
-                Address address = CurrentAddress;
+                var address = CurrentAddress;
                 if (StorageDirective()) {
                     DefineSymbol(label, address);
                     return true;
@@ -617,9 +622,9 @@ public abstract class Assembler : TokenReader
     {
         var identifier = LastToken as Identifier;
         Debug.Assert(identifier != null);
-        Token token = NextToken();
+        var token = NextToken();
         if (token.IsReservedWord(':')) {
-            Address address = CurrentAddress;
+            var address = CurrentAddress;
             DefineSymbol(identifier, address);
             NextToken();
         }
@@ -658,7 +663,13 @@ public abstract class Assembler : TokenReader
                 return true;
             case Keyword.Extrn:
             case Keyword.Ext:
-                ExternDirective(AddressType.External);
+                ExternDirective();
+                return true;
+            case Keyword.ZEXTRN:
+            case Keyword.ZEXT:
+                if (ZeroPageAvailable) {
+                    ExternDirective(AddressPart.LowByte);
+                }
                 return true;
             case Keyword.SCOPE:
                 ScopeDirective();
