@@ -7,7 +7,7 @@ namespace Inu.Assembler.Mos6502;
 
 internal class Assembler : LittleEndianAssembler
 {
-    public Assembler(int version) : base(new Tokenizer(version))
+    protected Assembler(Tokenizer tokenizer, int version) : base(tokenizer)
     {
         IsByte = version switch
         {
@@ -18,17 +18,14 @@ internal class Assembler : LittleEndianAssembler
 
     protected readonly Func<Address, bool> IsByte;
 
+    public Assembler(int version) : this(new Tokenizer(version), version) { }
+
     protected enum AddressingMode
     {
         Immediate, ZeroPage, ZeroPageX, ZeroPageY, Absolute, AbsoluteX, AbsoluteY, Indirect, IndirectX, IndirectY,
         //
         IndirectLong, IndirectLongY, StackRelative, StackRelativeIndirectY
     }
-
-    //protected static bool IsByte(Address value)
-    //{
-    //    return value.IsByte();
-    //}
 
 
     protected void ShowInvalidAddressingMode(Token token)

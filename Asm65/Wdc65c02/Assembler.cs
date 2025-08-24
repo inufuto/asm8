@@ -5,7 +5,7 @@ using Inu.Language;
 
 namespace Inu.Assembler.Wdc65c02;
 
-internal class Assembler(int version) : Mos6502.Assembler(version)
+internal class Assembler(int version) : Mos6502.Assembler(new Tokenizer(version),version)
 {
     protected override bool Instruction()
     {
