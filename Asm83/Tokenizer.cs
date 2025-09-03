@@ -4,7 +4,7 @@ namespace Inu.Assembler.Sm83;
 
 internal class Tokenizer : Inu.Assembler.Tokenizer
 {
-    public Tokenizer()
+    public Tokenizer(int version) : base(version)
     {
         ReservedWord.AddWords(Keyword.Words);
     }

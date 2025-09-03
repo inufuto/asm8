@@ -3,7 +3,7 @@ using System.Diagnostics;
 
 namespace Inu.Assembler.Sc62015;
 
-public class Assembler() : LittleEndianAssembler(new Tokenizer(), 20)
+public class Assembler(int version) : LittleEndianAssembler(new Tokenizer(version))
 {
     [Flags]
     private enum PreBytePurpose
@@ -263,7 +263,7 @@ public class Assembler() : LittleEndianAssembler(new Tokenizer(), 20)
                         if (secondCode == null) {
                             if (offset != null) {
                                 WriteByte(0x88 | leftRegister.Value);
-                                WritePointer(rightToken, offset);
+                                WriteTripleByte(rightToken, offset);
                                 return;
                             }
                         }
@@ -320,7 +320,7 @@ public class Assembler() : LittleEndianAssembler(new Tokenizer(), 20)
                                 WriteWord(valueToken, value);
                                 break;
                             case 3:
-                                WritePointer(valueToken, value);
+                                WriteTripleByte(valueToken, value);
                                 break;
                         }
                         return;
@@ -363,7 +363,7 @@ public class Assembler() : LittleEndianAssembler(new Tokenizer(), 20)
                         if (secondCode == null) {
                             if (offset != null) {
                                 WriteByte(0xa8 | rightRegister.Value);
-                                WritePointer(leftToken, offset);
+                                WriteTripleByte(leftToken, offset);
                                 return;
                             }
                         }
@@ -417,7 +417,7 @@ public class Assembler() : LittleEndianAssembler(new Tokenizer(), 20)
                             if (secondCode == null) {
                                 if (offset != null) {
                                     WriteByte(0xd8);
-                                    WritePointer(leftToken, offset);
+                                    WriteTripleByte(leftToken, offset);
                                     WriteByte(rightToken, preByte2.Offset);
                                     return;
                                 }
@@ -468,7 +468,7 @@ public class Assembler() : LittleEndianAssembler(new Tokenizer(), 20)
 
                                 WriteByte(0xd0);
                                 WriteByte(leftToken, preByte1.Offset);
-                                WritePointer(rightToken, offset);
+                                WriteTripleByte(rightToken, offset);
                                 return;
                             }
                         }
@@ -591,7 +591,7 @@ public class Assembler() : LittleEndianAssembler(new Tokenizer(), 20)
                             if (secondCode == null) {
                                 if (offset != null) {
                                     WriteByte(0xd9);
-                                    WritePointer(leftToken, offset);
+                                    WriteTripleByte(leftToken, offset);
                                     WriteByte(rightToken, preByte2.Offset);
                                     return;
                                 }
@@ -638,7 +638,7 @@ public class Assembler() : LittleEndianAssembler(new Tokenizer(), 20)
 
                                 WriteByte(0xd1);
                                 WriteByte(leftToken, preByte1.Offset);
-                                WritePointer(rightToken, offset);
+                                WriteTripleByte(rightToken, offset);
                                 return;
                             }
                         }
@@ -742,7 +742,7 @@ public class Assembler() : LittleEndianAssembler(new Tokenizer(), 20)
                             if (secondCode == null) {
                                 if (offset != null) {
                                     WriteByte(0xda);
-                                    WritePointer(leftToken, offset);
+                                    WriteTripleByte(leftToken, offset);
                                     WriteByte(rightToken, preByte2.Offset);
                                     return;
                                 }
@@ -789,7 +789,7 @@ public class Assembler() : LittleEndianAssembler(new Tokenizer(), 20)
 
                                 WriteByte(0xd2);
                                 WriteByte(leftToken, preByte1.Offset);
-                                WritePointer(rightToken, offset);
+                                WriteTripleByte(rightToken, offset);
                                 return;
                             }
                         }
@@ -852,7 +852,7 @@ public class Assembler() : LittleEndianAssembler(new Tokenizer(), 20)
 
                         WriteByte(0xdc);
                         WriteByte(leftToken, preByte1.Offset);
-                        WritePointer(valueToken, value);
+                        WriteTripleByte(valueToken, value);
                         return;
                     }
                 }
@@ -895,7 +895,7 @@ public class Assembler() : LittleEndianAssembler(new Tokenizer(), 20)
                             if (secondCode == null) {
                                 if (offset != null) {
                                     WriteByte(0xdb);
-                                    WritePointer(leftToken, offset);
+                                    WriteTripleByte(leftToken, offset);
                                     WriteByte(rightToken, preByte2.Offset);
                                     return;
                                 }
@@ -946,7 +946,7 @@ public class Assembler() : LittleEndianAssembler(new Tokenizer(), 20)
                                 }
                                 WriteByte(0xd3);
                                 WriteByte(leftToken, preByte1.Offset);
-                                WritePointer(rightToken, offset);
+                                WriteTripleByte(rightToken, offset);
                                 return;
                             }
                         }
@@ -1487,7 +1487,7 @@ public class Assembler() : LittleEndianAssembler(new Tokenizer(), 20)
                 var value = Expression();
                 if (value != null) {
                     WriteByte(0x62);
-                    WritePointer(leftToken, address);
+                    WriteTripleByte(leftToken, address);
                     WriteByte(rightToken, value);
                     return;
                 }
@@ -1617,7 +1617,7 @@ public class Assembler() : LittleEndianAssembler(new Tokenizer(), 20)
                 var value = Expression();
                 if (value != null) {
                     WriteByte(code | 0x02);
-                    WritePointer(leftToken, address);
+                    WriteTripleByte(leftToken, address);
                     WriteByte(rightToken, value);
                     return;
                 }
@@ -1696,7 +1696,7 @@ public class Assembler() : LittleEndianAssembler(new Tokenizer(), 20)
                 var value = Expression();
                 if (value != null) {
                     WriteByte(0x65);
-                    WritePointer(leftToken, address);
+                    WriteTripleByte(leftToken, address);
                     WriteByte(rightToken, value);
                     return;
                 }
@@ -1837,7 +1837,7 @@ public class Assembler() : LittleEndianAssembler(new Tokenizer(), 20)
         var address = Expression();
         if (address != null) {
             WriteByte(code);
-            WritePointer(token, address);
+            WriteTripleByte(token, address);
             return;
         }
         ShowSyntaxError(LastToken);
@@ -2165,7 +2165,7 @@ public class Assembler() : LittleEndianAssembler(new Tokenizer(), 20)
         var token = LastToken;
         var value = Expression();
         if (value == null) { return false; }
-        WritePointer(token, value);
+        WriteTripleByte(token, value);
         return true;
     }
 }

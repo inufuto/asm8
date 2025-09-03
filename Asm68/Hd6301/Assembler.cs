@@ -1,15 +1,9 @@
-﻿namespace Inu.Assembler.Hd6301
+﻿namespace Inu.Assembler.Hd6301;
+
+internal class Assembler(int version) : Mc6801.Assembler(new Tokenizer(version), version)
 {
-
-    internal class Assembler : Mc6801.Assembler
+    static Assembler() 
     {
-        static Assembler()
-        {
-            ImpliedElements.Add(Keyword.XGDX, 0x18);
-        }
-
-        public Assembler() : base(new Tokenizer())
-        {
-        }
+        ImpliedElements.Add(Keyword.XGDX, 0x18);
     }
 }

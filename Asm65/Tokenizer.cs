@@ -1,12 +1,11 @@
 ﻿using Inu.Language;
 
-namespace Inu.Assembler.Mos6502
+namespace Inu.Assembler.Mos6502;
+
+internal class Tokenizer : Inu.Assembler.Tokenizer
 {
-    internal class Tokenizer : Inu.Assembler.Tokenizer
+    public Tokenizer(int version) : base(version)
     {
-        public Tokenizer()
-        {
-            ReservedWord.AddWords(Keyword.Words);
-        }
+        ReservedWord.AddWords(Keyword.Words);
     }
 }

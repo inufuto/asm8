@@ -1,12 +1,9 @@
 ﻿using Inu.Language;
-using Microsoft.Win32;
 using System.Diagnostics;
-using System.Net;
-using System.Runtime.Intrinsics.X86;
 
 namespace Inu.Assembler.Sm8521;
 
-internal class Assembler() : BigEndianAssembler(new Tokenizer())
+internal class Assembler(int version) : BigEndianAssembler(new Tokenizer(version))
 {
     private const int Zero = 6;
     private const int Always = 8;

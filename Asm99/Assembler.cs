@@ -5,7 +5,7 @@ using Inu.Language;
 
 namespace Inu.Assembler.Tms99;
 
-internal class Assembler() : BigEndianAssembler(new Tokenizer())
+internal class Assembler(int version) : BigEndianAssembler(new Tokenizer(version))
 {
     private enum AddressingMode
     {

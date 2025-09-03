@@ -13,16 +13,11 @@ public enum TokenType
     StringValue,
 }
 
-public abstract class Token
+public abstract class Token(SourcePosition position, TokenType type)
 {
 
-    public SourcePosition Position { get; private set; }
-    public TokenType Type { get; }
-    protected Token(SourcePosition position, TokenType type)
-    {
-        Position = position;
-        Type = type;
-    }
+    public SourcePosition Position { get; private set; } = position;
+    public TokenType Type { get; } = type;
 
     public virtual bool IsEof() => false;
 

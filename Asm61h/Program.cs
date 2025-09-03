@@ -1,13 +1,21 @@
 ﻿using Inu.Language;
 
-namespace Inu.Assembler.HD61700
+namespace Inu.Assembler.HD61700;
+
+class Program
 {
-    class Program
+    public static int Main(string[] args)
     {
-        public static int Main(string[] args)
+        var version = 1;
+        var normalArgument = new NormalArgument(args, (option, value) =>
         {
-            var normalArgument = new NormalArgument(args);
-            return new Assembler().Main(normalArgument);
-        }
+            version = option switch
+            {
+                "V2" => 2,
+                _ => version
+            };
+            return false;
+        });
+        return new Assembler(version).Main(normalArgument);
     }
 }

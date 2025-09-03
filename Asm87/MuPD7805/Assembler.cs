@@ -2,7 +2,7 @@
 
 namespace Inu.Assembler.MuCom87.MuPD7805
 {
-    internal class Assembler : MuCom87.Assembler
+    internal class Assembler(int version) : MuCom87.Assembler(version)
     {
         protected override bool Instruction(ReservedWord reservedWord)
         {

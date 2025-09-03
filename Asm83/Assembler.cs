@@ -3,7 +3,7 @@ using System.Diagnostics;
 
 namespace Inu.Assembler.Sm83;
 
-internal class Assembler() : LittleEndianAssembler(new Tokenizer())
+internal class Assembler(int version) : LittleEndianAssembler(new Tokenizer(version))
 {
     private void ShowOutOfRange(SourcePosition position)
     {
