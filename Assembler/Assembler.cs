@@ -20,6 +20,9 @@ public abstract class Assembler : TokenReader
     private ListFile? listFile;
     private int nextAutoLabelId;
     private readonly Stack<Block> blocks = new();
+    private readonly Scope globalScope = new(0, null);
+    private int scopeId;
+    private Scope? currentScope;
 
     protected Assembler(Language.Tokenizer tokenizer) : base(tokenizer)
     {
@@ -33,7 +36,12 @@ public abstract class Assembler : TokenReader
 
     public bool DefineSymbol(int id, Address address)
     {
-        var symbol = FindSymbol(id);
+        Debug.Assert(currentScope != null);
+        var symbolKey = new SymbolKey(currentScope, id);
+        var symbol = @object.FindPublicSymbol(id);
+        if (symbol is not { Public: true }) {
+            symbol = FindSymbol(symbolKey);
+        }
         if (symbol == null) {
             string name;
             if (Identifier.IsIdentifierId(id)) {
@@ -42,12 +50,11 @@ public abstract class Assembler : TokenReader
             else {
                 name = "@" + id;
             }
-
-            @object.Symbols[id] = new Symbol(Pass, id, name, address);
+            @object.Symbols[symbolKey] = new Symbol(Pass, id, name, address, currentScope);
             return true;
         }
         if (symbol.Address == address) { return true; }
-        if (symbol.Pass == Pass) {
+        if (symbol.Pass == Pass || (symbol.Public && symbol.Scope.Id != currentScope.Id)) {
             // duplicate
             return false;
         }
@@ -64,10 +71,22 @@ public abstract class Assembler : TokenReader
         }
     }
 
-    protected Symbol? FindSymbol(int id)
+    protected Symbol? FindSymbol(SymbolKey symbolKey)
     {
-        if (!@object.Symbols.TryGetValue(id, out var symbol)) return null;
+        if (!@object.Symbols.TryGetValue(symbolKey, out var symbol)) return null;
         symbol.Address.Parenthesized = false;
+        return symbol;
+    }
+
+    private Symbol? FindSymbol(int id)
+    {
+        var scope = currentScope;
+        Symbol? symbol = null;
+        while (scope != null) {
+            symbol = FindSymbol(new SymbolKey(scope, id));
+            if (symbol != null) break;
+            scope = scope.Parent;
+        }
         return symbol;
     }
 
@@ -154,21 +173,6 @@ public abstract class Assembler : TokenReader
     {
         for (var i = 0; i < value; ++i) {
             CurrentSegment.WriteByte(0);
-        }
-    }
-
-    protected void WritePointer(Token token, Address value)
-    {
-        if (value.IsRelocatable() || value.Type == AddressType.External) {
-            value = value.PartOf(PointerAddressPart);
-            @object.AddressUsages[CurrentAddress] = value;
-        }
-        else if (!value.IsConst()) {
-            ShowAddressUsageError(token);
-        }
-        var bytes = ToBytes(value.Value, 3);
-        foreach (var b in bytes) {
-            WriteByte(b);
         }
     }
 
@@ -473,8 +477,9 @@ public abstract class Assembler : TokenReader
             NextToken();
             if (LastToken is Identifier identifier) {
                 var symbol = FindSymbol(identifier);
-                if (symbol != null) {
+                if (symbol is { Public: false }) {
                     symbol.Public = true;
+                    addressChanged = true;
                 }
                 NextToken();
             }
@@ -483,20 +488,44 @@ public abstract class Assembler : TokenReader
             }
         } while (LastToken.IsReservedWord(','));
     }
-    private void ExternDirective(AddressType type)
+    private void ExternDirective()
+    {
+        var addressPart = PointerAddressPart;
+        ExternDirective(addressPart);
+    }
+
+    private void ExternDirective(AddressPart addressPart)
     {
         Debug.Assert(LastToken != null);
         do {
             var token = NextToken();
             if (token is Identifier label) {
                 NextToken();
-                DefineSymbol(label, new Address(type, 0, label.Id, PointerAddressPart));
+                DefineSymbol(label, new Address(AddressType.External, 0, label.Id, addressPart));
             }
             else {
                 ShowMissingIdentifier(token.Position);
             }
         } while (LastToken.IsReservedWord(','));
     }
+
+    private void ScopeDirective()
+    {
+        NextToken();
+        currentScope = new Scope(++scopeId, currentScope);
+    }
+
+    private void EndScopeDirective()
+    {
+        var token = LastToken;
+        NextToken();
+        if (currentScope == null || currentScope == globalScope) {
+            ShowNoStatementError(token, "SCOPE");
+            return;
+        }
+        currentScope = currentScope.Parent;
+    }
+
 
     private bool ByteStorageOperand()
     {
@@ -574,14 +603,13 @@ public abstract class Assembler : TokenReader
     }
     private bool AfterLabel(Identifier label)
     {
-        if (!(LastToken is ReservedWord reservedWord))
-            return false;
+        if (LastToken is not ReservedWord reservedWord) return false;
         switch (reservedWord.Id) {
             case Keyword.Equ:
                 EquDirective(label);
                 return true;
             default:
-                Address address = CurrentAddress;
+                var address = CurrentAddress;
                 if (StorageDirective()) {
                     DefineSymbol(label, address);
                     return true;
@@ -594,9 +622,9 @@ public abstract class Assembler : TokenReader
     {
         var identifier = LastToken as Identifier;
         Debug.Assert(identifier != null);
-        Token token = NextToken();
+        var token = NextToken();
         if (token.IsReservedWord(':')) {
-            Address address = CurrentAddress;
+            var address = CurrentAddress;
             DefineSymbol(identifier, address);
             NextToken();
         }
@@ -635,13 +663,24 @@ public abstract class Assembler : TokenReader
                 return true;
             case Keyword.Extrn:
             case Keyword.Ext:
-                ExternDirective(AddressType.External);
+                ExternDirective();
+                return true;
+            case Keyword.ZEXTRN:
+            case Keyword.ZEXT:
+                if (ZeroPageAvailable) {
+                    ExternDirective(AddressPart.LowByte);
+                }
+                return true;
+            case Keyword.SCOPE:
+                ScopeDirective();
+                return true;
+            case Keyword.ENDSCOPE:
+                EndScopeDirective();
                 return true;
         }
 
         return false;
     }
-
 
     protected virtual bool IsRelativeOffsetInRange(int offset)
     {
@@ -717,8 +756,7 @@ public abstract class Assembler : TokenReader
                 if (address.Type == CurrentSegment.Type) {
                     offset = RelativeOffset(address, instructionLength);
                 }
-                else
-                {
+                else {
                     ShowAddressUsageError(token);
                     return false;
                 }
@@ -799,6 +837,8 @@ public abstract class Assembler : TokenReader
         for (Pass = 1; (Pass <= 2 || addressChanged) && ErrorCount <= 0; ++Pass) {
             Console.Out.WriteLine("Pass " + Pass);
             addressChanged = false;
+            currentScope = globalScope;
+            scopeId = 0;
             listFile = new ListFile(listName);
             SourceReader.Printer = listFile;
             @object.AddressUsages.Clear();
@@ -838,10 +878,8 @@ public abstract class Assembler : TokenReader
     }
 }
 
-public abstract class LittleEndianAssembler : Assembler
+public abstract class LittleEndianAssembler(Language.Tokenizer tokenizer) : Assembler(tokenizer)
 {
-    protected LittleEndianAssembler(Language.Tokenizer tokenizer, int addressChanged = 16) : base(tokenizer) { }
-
     protected override byte[] ToBytes(int value, int size)
     {
         var bytes = new byte[size];
@@ -853,10 +891,8 @@ public abstract class LittleEndianAssembler : Assembler
     }
 }
 
-public abstract class BigEndianAssembler : Assembler
+public abstract class BigEndianAssembler(Language.Tokenizer tokenizer) : Assembler(tokenizer)
 {
-    protected BigEndianAssembler(Language.Tokenizer tokenizer, int addressChanged = 16) : base(tokenizer) { }
-
     protected override byte[] ToBytes(int value, int size)
     {
         var bytes = new byte[size];

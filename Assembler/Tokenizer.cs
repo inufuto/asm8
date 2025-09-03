@@ -11,9 +11,15 @@ public abstract class Tokenizer : Language.Tokenizer
     private const char HexValueHead = '$';
     private const char HexValueTail = 'H';
 
-    protected Tokenizer()
+    protected Tokenizer(int version)
     {
-        ReservedWord.AddWords(Keyword.Words);
+        ReservedWord.AddWords(
+            version switch
+            {
+                2 => Keyword.WordsV2,
+                _ => Keyword.Words
+            }
+        );
     }
 
     protected override bool IsSpace(char c)
@@ -35,7 +41,7 @@ public abstract class Tokenizer : Language.Tokenizer
 
     protected override void SkipSpaces()
     {
-        repeat:
+    repeat:
         base.SkipSpaces();
         if (LastChar == Comment) {
             Debug.Assert(SourceReader.Current != null);
@@ -66,8 +72,7 @@ public abstract class Tokenizer : Language.Tokenizer
     {
         var chars = new StringBuilder();
         var upper = char.ToUpper(LastChar);
-        while (IsHexDigit(upper))
-        {
+        while (IsHexDigit(upper)) {
             chars.Append(upper);
             NextChar();
             upper = char.ToUpper(LastChar);

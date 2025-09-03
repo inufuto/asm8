@@ -2,91 +2,123 @@
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using Inu.Language;
 
-namespace Inu.Assembler
+namespace Inu.Assembler;
+
+public class Object(string? fileName)
 {
-    public class Object(string? fileName)
+    private const int Version = 0x0100;
+    public const string Extension = ".obj";
+
+    public string? Name { get; private set; } = Path.GetFileName(fileName);
+    public readonly Segment[] Segments = { new(AddressType.Code), new(AddressType.Data), new(AddressType.ZeroPage) };
+    public readonly Dictionary<SymbolKey, Symbol> Symbols = new();
+    public readonly Dictionary<Address, Address> AddressUsages = new();
+
+    public Object() : this(null) { }
+
+
+    public void Save(string fileName)
     {
-        private const int Version = 0x0100;
-        public const string Extension = ".obj";
+        using Stream stream = new FileStream(fileName, FileMode.Create, FileAccess.Write);
+        Write(stream);
+        Name = Path.GetFileName(fileName);
+    }
 
-        public string? Name { get; private set; } = Path.GetFileName(fileName);
-        public readonly Segment[] Segments = { new(AddressType.Code), new(AddressType.Data), new(AddressType.ZeroPage) };
-        public readonly Dictionary<int, Symbol> Symbols = new();
-        public readonly Dictionary<Address, Address> AddressUsages = new();
+    public void Write(Stream stream)
+    {
+        stream.WriteWord(Version);
 
-        public Object() : this(null) { }
-
-
-        public void Save(string fileName)
-        {
-            using Stream stream = new FileStream(fileName, FileMode.Create, FileAccess.Write);
-            Write(stream);
-            Name = Path.GetFileName(fileName);
+        foreach (var segment in Segments) {
+            segment.Write(stream);
         }
 
-        public void Write(Stream stream)
+        var publicSymbols = Symbols.Where(p => p.Value.Public).Select(p => p.Value).ToList();
+        var publicIds = publicSymbols.Select(s => s.Id).ToList();
+        var externalIds = AddressUsages.Values.Where(address => address.IsExternal()).Select(a =>
         {
-            stream.WriteWord(Version);
+            Debug.Assert(a.Id != null);
+            return a.Id.Value;
+        });
+        var ids = publicIds.Union(externalIds).ToHashSet();
 
-            foreach (var segment in Segments) {
-                segment.Write(stream);
-            }
-
-            var publicSymbols = Symbols.Where(p => p.Value.Public).Select(p => p.Value).ToList();
-            var publicIds = publicSymbols.Select(s => s.Id).ToList();
-            var externalIds = AddressUsages.Values.Where(address => address.IsExternal()).Select(a =>
-            {
-                Debug.Assert(a.Id != null, "a.Id != null");
-                return a.Id.Value;
-            });
-            var ids = publicIds.Union(externalIds).ToHashSet();
-
-            stream.WriteWord(ids.Count);
-            foreach (var symbol in ids.Select(id => Symbols[id])) {
-                symbol.Write(stream);
-            }
-
-            stream.WriteWord(AddressUsages.Count);
-            foreach (var (key, value) in AddressUsages) {
-                key.Write(stream);
-                value.Write(stream);
-            }
+        stream.WriteWord(ids.Count);
+        foreach (var symbol in ids.Select(id => Symbols.Values.First(s => s.Id == id)))
+        {
+            symbol.Write(stream);
         }
 
-        public void Load(string fileName)
-        {
-            using Stream stream = new FileStream(fileName, FileMode.Open, FileAccess.Read);
-            Read(stream);
-            Name = Path.GetFileName(fileName);
+        stream.WriteWord(AddressUsages.Count);
+        foreach (var (key, value) in AddressUsages) {
+            key.Write(stream);
+            value.Write(stream);
+        }
+    }
+
+    public void Load(string fileName)
+    {
+        using Stream stream = new FileStream(fileName, FileMode.Open, FileAccess.Read);
+        Read(stream);
+        Name = Path.GetFileName(fileName);
+    }
+
+    public void Read(Stream stream)
+    {
+        stream.ReadWord(); // version
+
+        foreach (var segment in Segments) {
+            segment.Read(stream);
         }
 
-        public void Read(Stream stream)
         {
-            stream.ReadWord(); // version
-
-            foreach (var segment in Segments) {
-                segment.Read(stream);
-            }
-
-            {
-                var n = stream.ReadWord();
-                for (var i = 0; i < n; ++i) {
-                    var symbol = new Symbol(stream) { Public = true };
-                    Symbols[symbol.Id] = symbol;
-                }
-            }
-            {
-                var n = stream.ReadWord();
-                for (var i = 0; i < n; ++i) {
-                    var location = new Address(stream);
-                    var value = new Address(stream);
-                    AddressUsages[location] = value;
-                }
+            var n = stream.ReadWord();
+            for (var i = 0; i < n; ++i) {
+                var symbol = new Symbol(stream);
+                Symbols[symbol.Key] = symbol;
             }
         }
+        {
+            var n = stream.ReadWord();
+            for (var i = 0; i < n; ++i) {
+                var location = new Address(stream);
+                var value = new Address(stream);
+                AddressUsages[location] = value;
+            }
+        }
+    }
 
-        public string NameFromId(int id) => Symbols[id].Name;
+    public string NameFromId(int id)
+    {
+        var symbol = Symbols.Values.FirstOrDefault(s => s.Id == id);
+        Debug.Assert(symbol != null);
+        return symbol.Name;
+    }
+
+    public Symbol? FindPublicSymbol(int id)
+    {
+        return Symbols.Values.FirstOrDefault(s => s.Public && s.Id == id);
+    }
+}
+
+public class SymbolKey(Scope scope, int id)
+{
+    public readonly Scope Scope = scope;
+    public readonly int Id = id;
+    public override bool Equals(object? obj)
+    {
+        if (obj is not SymbolKey symbolKey) return false;
+        return Scope.Id == symbolKey.Scope.Id && Id == symbolKey.Id;
+    }
+
+    public override int GetHashCode()
+    {
+        return Id * 256 + Scope.Id;
+    }
+
+    public override string ToString()
+    {
+        return "[" + Scope.Id + ":" + Id + "]";
     }
 }

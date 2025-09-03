@@ -5,11 +5,8 @@ using System.Diagnostics;
 
 namespace Inu.Assembler.Z80;
 
-class Assembler : Inu.Assembler.LittleEndianAssembler
+internal class Assembler(int version) : Inu.Assembler.LittleEndianAssembler(new Tokenizer(version))
 {
-    public Assembler() : base(new Tokenizer()) { }
-
-
     private int? ByteExpression()
     {
         Debug.Assert(LastToken != null);
@@ -24,42 +21,42 @@ class Assembler : Inu.Assembler.LittleEndianAssembler
 
     private static readonly Dictionary<int, int[]> InstructionsWithoutOperand = new Dictionary<int, int[]>
     {
-        {Keyword.LdI, new int[] {0b11101101, 0b10100000}},
-        {Keyword.LdIr,  new int[]{0b11101101, 0b10110000}},
-        {Keyword.LdD,   new int[]{0b11101101, 0b10101000}},
-        {Keyword.LdDr, new int[] {0b11101101, 0b10111000}},
-        {Keyword.Exx, new int[] {0b11011001}},
-        {Keyword.RlcA, new int[] {0b00000111}},
-        {Keyword.Rla, new int[] {0b00010111}},
-        {Keyword.RrcA, new int[] {0b00001111}},
-        {Keyword.Rra, new int[] {0b00011111}},
-        {Keyword.Cpl, new int[] {0b00101111}},
-        {Keyword.Neg, new int[] {0b11101101, 0b01000100}},
-        {Keyword.Ccf, new int[] {0b00111111}},
-        {Keyword.Scf, new int[] {0b00110111}},
-        {Keyword.Cpi, new int[] {0b11101101, 0b10100001}},
-        {Keyword.CpiR,new int[] {0b11101101, 0b10110001}},
-        {Keyword.Cpd,new int[] {0b11101101, 0b10101001}},
-        {Keyword.CpdR,new int[] {0b11101101, 0b10111001}},
-        {Keyword.RetI,new int[] {0b11101101, 0b01001101}},
-        {Keyword.RetN,new int[] {0b11101101, 0b01000101}},
-        {Keyword.Nop, new int[] {0b00000000}},
-        {Keyword.Halt,new int[] {0b01110110}},
-        {Keyword.Di,new int[] {0b11110011}},
-        {Keyword.Ei,new int[] {0b11111011}},
-        {Keyword.Ini, new int[] {0b11101101, 0b10100010}},
-        {Keyword.IniR,new int[] {0b11101101, 0b10110010}},
-        {Keyword.Ind,new int[] {0b11101101, 0b10101010}},
-        {Keyword.IndR,new int[] {0b11101101, 0b10111010}},
-        {Keyword.OutI,new int[] {0b11101101, 0b10100011}},
-        {Keyword.OutIr,new int[] {0b11101101, 0b10110011}},
-        {Keyword.OtIr,new int[] {0b11101101, 0b10110011}},
-        {Keyword.OutD,new int[] {0b11101101, 0b10101011}},
-        {Keyword.OutDr,new int[] {0b11101101, 0b10111011}},
-        {Keyword.OtDr,new int[] {0b11101101, 0b10111011}},
-        {Keyword.Daa, new int[] {0b00100111}},
-        {Keyword.Rld,new int[] {0b11101101, 0b01101111}},
-        {Keyword.Rrd,new int[] {0b11101101, 0b01100111}},
+        {Keyword.LdI, [0b11101101, 0b10100000] },
+        {Keyword.LdIr, [0b11101101, 0b10110000] },
+        {Keyword.LdD, [0b11101101, 0b10101000] },
+        {Keyword.LdDr, [0b11101101, 0b10111000] },
+        {Keyword.Exx, [0b11011001] },
+        {Keyword.RlcA, [0b00000111] },
+        {Keyword.Rla, [0b00010111] },
+        {Keyword.RrcA, [0b00001111] },
+        {Keyword.Rra, [0b00011111] },
+        {Keyword.Cpl, [0b00101111] },
+        {Keyword.Neg, [0b11101101, 0b01000100] },
+        {Keyword.Ccf, [0b00111111] },
+        {Keyword.Scf, [0b00110111] },
+        {Keyword.Cpi, [0b11101101, 0b10100001] },
+        {Keyword.CpiR, [0b11101101, 0b10110001] },
+        {Keyword.Cpd, [0b11101101, 0b10101001] },
+        {Keyword.CpdR, [0b11101101, 0b10111001] },
+        {Keyword.RetI, [0b11101101, 0b01001101] },
+        {Keyword.RetN, [0b11101101, 0b01000101] },
+        {Keyword.Nop, [0b00000000] },
+        {Keyword.Halt, [0b01110110] },
+        {Keyword.Di, [0b11110011] },
+        {Keyword.Ei, [0b11111011] },
+        {Keyword.Ini, [0b11101101, 0b10100010] },
+        {Keyword.IniR, [0b11101101, 0b10110010] },
+        {Keyword.Ind, [0b11101101, 0b10101010] },
+        {Keyword.IndR, [0b11101101, 0b10111010] },
+        {Keyword.OutI, [0b11101101, 0b10100011] },
+        {Keyword.OutIr, [0b11101101, 0b10110011] },
+        {Keyword.OtIr, [0b11101101, 0b10110011] },
+        {Keyword.OutD, [0b11101101, 0b10101011] },
+        {Keyword.OutDr, [0b11101101, 0b10111011] },
+        {Keyword.OtDr, [0b11101101, 0b10111011] },
+        {Keyword.Daa, [0b00100111] },
+        {Keyword.Rld, [0b11101101, 0b01101111] },
+        {Keyword.Rrd, [0b11101101, 0b01100111] },
     };
     private bool InstructionWithoutOperand()
     {
@@ -67,17 +64,18 @@ class Assembler : Inu.Assembler.LittleEndianAssembler
         Debug.Assert(reservedWord != null);
         if (!InstructionsWithoutOperand.TryGetValue(reservedWord.Id, out var codes)) { return false; }
         NextToken();
-        foreach (int code in codes) {
+        foreach (var code in codes) {
             WriteByte(code);
         }
         return true;
     }
 
-    private static readonly int[] SingleRegisters = { Keyword.B, Keyword.C, Keyword.D, Keyword.E, Keyword.H, Keyword.L, 0, Keyword.A };
+    private static readonly int[] SingleRegisters = [Keyword.B, Keyword.C, Keyword.D, Keyword.E, Keyword.H, Keyword.L, 0, Keyword.A
+    ];
     private int? SingleRegister()
     {
         var token = LastToken;
-        if (!(token is ReservedWord reservedWord))
+        if (token is not ReservedWord reservedWord)
             return null;
         var code = 0;
         foreach (var r in SingleRegisters) {
@@ -93,9 +91,9 @@ class Assembler : Inu.Assembler.LittleEndianAssembler
 
     private int OffsetForIndex()
     {
-        Token token = NextToken();
+        var token = NextToken();
         var offset = ByteExpression() ?? 0;
-        if (offset < -128 || offset > 127) {
+        if (offset is < -128 or > 127) {
             ShowOutOfRange(token, offset);
         }
         return offset;
@@ -104,19 +102,19 @@ class Assembler : Inu.Assembler.LittleEndianAssembler
     {
         registerId = 0;
 
-        Token token = LastToken;
+        var token = LastToken;
         if (token is ReservedWord reservedWord) {
             switch (registerId = reservedWord.Id) {
                 case Keyword.Hl:
                 case Keyword.De:
                 case Keyword.Bc: {
-                    NextToken();
-                    address = Address.Default;
-                    return true;
-                }
+                        NextToken();
+                        address = Address.Default;
+                        return true;
+                    }
                 case Keyword.Ix:
                 case Keyword.Iy:
-                    int offset = OffsetForIndex();
+                    var offset = OffsetForIndex();
                     address = new Address(AddressType.Const, offset);
                     return true;
             }
@@ -132,7 +130,7 @@ class Assembler : Inu.Assembler.LittleEndianAssembler
     {
         registerId = 0;
 
-        Token token = LastToken;
+        var token = LastToken;
         if (!token.IsReservedWord('(')) {
             address = Address.Default;
             return false;
@@ -152,14 +150,15 @@ class Assembler : Inu.Assembler.LittleEndianAssembler
         return true;
     }
 
-    private static readonly Dictionary<int, int> IndexRegisterCodes = new Dictionary<int, int>{
+    private static readonly Dictionary<int, int> IndexRegisterCodes = new()
+    {
         { Keyword.Ix, 0b11011101},
         { Keyword.Iy, 0b11111101},
     };
     private int? IndexRegister()
     {
-        Token leftToken = LastToken;
-        if (!(leftToken is ReservedWord reservedWord))
+        var leftToken = LastToken;
+        if (leftToken is not ReservedWord reservedWord)
             return null;
         switch (reservedWord.Id) {
             case Keyword.Ix:
@@ -168,22 +167,6 @@ class Assembler : Inu.Assembler.LittleEndianAssembler
                 return IndexRegisterCodes[reservedWord.Id];
         }
         return null;
-    }
-
-    private bool WriteAddressRegisterInstruction(Token operand, int instruction)
-    {
-        if (LastToken.IsReservedWord(Keyword.Hl)) {
-            NextToken();
-            WriteByte(instruction);
-            return true;
-        }
-        var indexRegisterCode = IndexRegister();
-        if (indexRegisterCode == null)
-            return false;
-        //	IX or IY
-        WriteByte(indexRegisterCode.Value);
-        WriteByte(instruction);
-        return true;
     }
 
     /**
@@ -226,11 +209,11 @@ class Assembler : Inu.Assembler.LittleEndianAssembler
         return true;
     }
 
-    private static readonly int[] RegisterPairs = { Keyword.Bc, Keyword.De, Keyword.Hl, Keyword.Sp };
+    private static readonly int[] RegisterPairs = [Keyword.Bc, Keyword.De, Keyword.Hl, Keyword.Sp];
     private int? RegisterPair()
     {
-        Token token = LastToken;
-        if (!(token is ReservedWord reservedWord))
+        var token = LastToken;
+        if (token is not ReservedWord reservedWord)
             return null;
         var code = 0;
         foreach (var r in RegisterPairs) {
@@ -302,7 +285,7 @@ class Assembler : Inu.Assembler.LittleEndianAssembler
      */
     private bool LoadToMemoryInstruction()
     {
-        Token leftToken = LastToken;
+        var leftToken = LastToken;
         if (!MemoryAddress(out var indexId, out var address)) { return false; }
         AcceptReservedWord(',');
         Debug.Assert(address != null);
@@ -316,7 +299,7 @@ class Assembler : Inu.Assembler.LittleEndianAssembler
      */
     private bool LoadRegisterFromMemoryInstruction(Token leftToken, int leftRegister)
     {
-        if (!MemoryAddress(out int indexId, out var address)) { return false; }
+        if (!MemoryAddress(out var indexId, out var address)) { return false; }
         Debug.Assert(address != null);
         switch (indexId) {
             case Keyword.Hl:
@@ -378,8 +361,8 @@ class Assembler : Inu.Assembler.LittleEndianAssembler
      */
     private bool LoadRegisterFromSpecialRegisterInstruction(Token leftToken)
     {
-        Token rightToken = LastToken;
-        if (!(rightToken is ReservedWord reservedWord))
+        var rightToken = LastToken;
+        if (rightToken is not ReservedWord reservedWord)
             return false;
         switch (reservedWord.Id) {
             case Keyword.I:
@@ -467,12 +450,12 @@ class Assembler : Inu.Assembler.LittleEndianAssembler
      */
     private bool LoadRegisterPairInstruction()
     {
-        Token leftToken = LastToken;
+        var leftToken = LastToken;
         var leftRegister = RegisterPair();
         if (leftRegister == null) { return false; }
         AcceptReservedWord(',');
         if (LoadStackPointer(leftToken)) { return true; }
-        Token rightToken = LastToken;
+        var rightToken = LastToken;
         var value = Expression();
         if (value == null) { return false; }
         if (value.Parenthesized) {
@@ -530,14 +513,14 @@ class Assembler : Inu.Assembler.LittleEndianAssembler
     };
     private bool LoadSpecialRegisterFromRegister(Token leftToken)
     {
-        if (!(leftToken is ReservedWord reservedWord))
+        if (leftToken is not ReservedWord reservedWord)
             return false;
         if (!SpecialRegisterCodes.TryGetValue(reservedWord.Id, out int instruction)) {
             return false;
         }
 
         NextToken();
-        Token rightToken = AcceptReservedWord(',');
+        var rightToken = AcceptReservedWord(',');
         if (!rightToken.IsReservedWord(Keyword.A)) {
             ShowSyntaxError();
         }
@@ -554,7 +537,7 @@ class Assembler : Inu.Assembler.LittleEndianAssembler
      */
     private void LoadInstruction()
     {
-        Token leftToken = NextToken();
+        var leftToken = NextToken();
         if (
             LoadToMemoryInstruction() ||
             LoadRegisterInstruction() ||
@@ -624,7 +607,7 @@ class Assembler : Inu.Assembler.LittleEndianAssembler
      */
     private void PushInstruction()
     {
-        Token operand = NextToken();
+        var operand = NextToken();
         {
             if (operand.IsReservedWord(Keyword.Af)) {
                 NextToken();
@@ -634,7 +617,7 @@ class Assembler : Inu.Assembler.LittleEndianAssembler
             }
         }
         {
-            int? registerCode = RegisterPair();
+            var registerCode = RegisterPair();
             if (registerCode != null) {
                 if (operand.IsReservedWord(Keyword.Sp)) { ShowInvalidRegister(operand); }
                 //	PUSH rp
@@ -658,7 +641,7 @@ class Assembler : Inu.Assembler.LittleEndianAssembler
      */
     private void PopInstruction()
     {
-        Token operand = NextToken();
+        var operand = NextToken();
         {
             if (operand.IsReservedWord(Keyword.Af)) {
                 NextToken();
@@ -668,7 +651,7 @@ class Assembler : Inu.Assembler.LittleEndianAssembler
             }
         }
         {
-            int? registerCode = RegisterPair();
+            var registerCode = RegisterPair();
             if (registerCode != null) {
                 if (operand.IsReservedWord(Keyword.Sp)) { ShowInvalidRegister(operand); }
                 //	POP rp
@@ -677,7 +660,7 @@ class Assembler : Inu.Assembler.LittleEndianAssembler
             }
         }
         {
-            int? registerCode = IndexRegister();
+            var registerCode = IndexRegister();
             if (registerCode != null) {
                 //	POP IX or IY
                 WriteByte(registerCode.Value);
@@ -690,7 +673,8 @@ class Assembler : Inu.Assembler.LittleEndianAssembler
     /**
      * "RL? RR? SL? SR?".
      */
-    private static readonly Dictionary<int, int> RotateOrShiftInstructions = new Dictionary<int, int>{
+    private static readonly Dictionary<int, int> RotateOrShiftInstructions = new()
+    {
         {Keyword.Rlc, 0b00000000},
         {Keyword.Rl, 0b00010000},
         {Keyword.Rrc, 0b00001000},
@@ -703,12 +687,12 @@ class Assembler : Inu.Assembler.LittleEndianAssembler
     {
         var reservedWord = LastToken as ReservedWord;
         Debug.Assert(reservedWord != null);
-        if (!RotateOrShiftInstructions.TryGetValue(reservedWord.Id, out int instruction)) { return false; }
+        if (!RotateOrShiftInstructions.TryGetValue(reservedWord.Id, out var instruction)) { return false; }
 
         NextToken();
         if (LastToken.IsReservedWord('(')) {
-            Token operand = NextToken();
-            if (IndexedAddress(out int registerId, out Address value)) {
+            var operand = NextToken();
+            if (IndexedAddress(out var registerId, out var value)) {
                 switch (registerId) {
                     case Keyword.Hl:
                         WriteByte(0b11001011);
@@ -755,8 +739,8 @@ class Assembler : Inu.Assembler.LittleEndianAssembler
     private bool ByteOperationInstruction(int instruction, int shiftCount = 0)
     {
         if (LastToken.IsReservedWord('(')) {
-            Token operand = NextToken();
-            if (IndexedAddress(out int registerId, out Address value)) {
+            var operand = NextToken();
+            if (IndexedAddress(out var registerId, out var value)) {
                 switch (registerId) {
                     case Keyword.Hl:
                         WriteByte(instruction | (0b110 << shiftCount));
@@ -789,12 +773,13 @@ class Assembler : Inu.Assembler.LittleEndianAssembler
     /**
      * "SUB,AND,OR,XOR or CP".
      */
-    private static readonly Dictionary<int, int[]> ByteOperationInstructions = new Dictionary<int, int[]>{
-        {Keyword.Sub, new int[]{0b10010000, 0b11010110}},
-        {Keyword.And, new int[]{0b10100000,0b11100110}},
-        {Keyword.Or, new int[]{0b10110000,0b11110110}},
-        {Keyword.Xor, new int[]{0b10101000, 0b11101110}},
-        {Keyword.Cp, new int[]{0b10111000, 0b11111110}},
+    private static readonly Dictionary<int, int[]> ByteOperationInstructions = new()
+    {
+        {Keyword.Sub, [0b10010000, 0b11010110] },
+        {Inu.Assembler.Keyword.And, [0b10100000,0b11100110] },
+        {Inu.Assembler.Keyword.Or, [0b10110000,0b11110110] },
+        {Inu.Assembler.Keyword.Xor, [0b10101000, 0b11101110] },
+        {Keyword.Cp, [0b10111000, 0b11111110] },
     };
     private bool ByteOperationInstruction()
     {
@@ -813,7 +798,7 @@ class Assembler : Inu.Assembler.LittleEndianAssembler
      */
     private void AddInstruction()
     {
-        Token leftOperand = NextToken();
+        var leftOperand = NextToken();
         if (leftOperand.IsReservedWord(Keyword.A)) {
             NextToken();
             AcceptReservedWord(',');
@@ -850,9 +835,10 @@ class Assembler : Inu.Assembler.LittleEndianAssembler
     /**
      * "ADC or SBC".
      */
-    private static readonly Dictionary<int, int[]> AddOrSubtractWithCarryInstructions = new Dictionary<int, int[]>{
-        {Keyword.Adc,new int[] {0b10001000,0b11001110, 0b01001010}},
-        {Keyword.Sbc,new int[] {0b10011000,0b11011110, 0b01000010}},
+    private static readonly Dictionary<int, int[]> AddOrSubtractWithCarryInstructions = new()
+    {
+        {Keyword.Adc, [0b10001000,0b11001110, 0b01001010] },
+        {Keyword.Sbc, [0b10011000,0b11011110, 0b01000010] },
     };
     private bool AddOrSubtractWithCarryInstruction()
     {
@@ -860,7 +846,7 @@ class Assembler : Inu.Assembler.LittleEndianAssembler
         Debug.Assert(reservedWord != null);
         if (!AddOrSubtractWithCarryInstructions.TryGetValue(reservedWord.Id, out var instructions)) { return false; }
 
-        Token leftOperand = NextToken();
+        var leftOperand = NextToken();
         if (leftOperand.IsReservedWord(Keyword.A)) {
             NextToken();
             AcceptReservedWord(',');
@@ -888,9 +874,10 @@ class Assembler : Inu.Assembler.LittleEndianAssembler
     /**
      * "INC or DEC".
      */
-    private static readonly Dictionary<int, int[]> InclementOrDecrementInstructions = new Dictionary<int, int[]> {
-        {Keyword.Inc, new int[]{0b00000100, 0b00000011}},
-        {Keyword.Dec, new int[]{0b00000101, 0b00001011}},
+    private static readonly Dictionary<int, int[]> InclementOrDecrementInstructions = new()
+    {
+        {Keyword.Inc, [0b00000100, 0b00000011] },
+        {Keyword.Dec, [0b00000101, 0b00001011] },
     };
     private bool InclementOrDecrementInstruction()
     {
@@ -922,7 +909,8 @@ class Assembler : Inu.Assembler.LittleEndianAssembler
     /**
      * "BIT SET RES".
      */
-    private static readonly Dictionary<int, int> BitOperationInstructions = new Dictionary<int, int>{
+    private static readonly Dictionary<int, int> BitOperationInstructions = new()
+    {
         {Keyword.Bit, 0b01000000},
         {Keyword.Set, 0b11000000},
         {Keyword.Res, 0b10000000},
@@ -931,12 +919,12 @@ class Assembler : Inu.Assembler.LittleEndianAssembler
     {
         var reservedWord = LastToken as ReservedWord;
         Debug.Assert(reservedWord != null);
-        if (!BitOperationInstructions.TryGetValue(reservedWord.Id, out int instruction)) { return false; }
+        if (!BitOperationInstructions.TryGetValue(reservedWord.Id, out var instruction)) { return false; }
 
         var leftOperand = NextToken();
         var bitNumber = ByteExpression();
         if (bitNumber != null) {
-            if (bitNumber < 0 || bitNumber >= 8) {
+            if (bitNumber is < 0 or >= 8) {
                 ShowOutOfRange(leftOperand, bitNumber.Value);
             }
 
@@ -949,7 +937,7 @@ class Assembler : Inu.Assembler.LittleEndianAssembler
                 return true;
             }
 
-            if (MemoryAddress(out int registerId, out var offset)) {
+            if (MemoryAddress(out var registerId, out var offset)) {
                 switch (registerId) {
                     case Keyword.Hl:
                         //	??? b,(HL)
@@ -974,10 +962,10 @@ class Assembler : Inu.Assembler.LittleEndianAssembler
         ShowSyntaxError();
         return true;
     }
-    private static readonly int[] ConditionCodes = { Keyword.Nz, Keyword.Z, Keyword.Nc, Keyword.C, Keyword.Po, Keyword.Pe, Keyword.P, Keyword.M };
+    private static readonly int[] ConditionCodes = [Keyword.Nz, Keyword.Z, Keyword.Nc, Keyword.C, Keyword.Po, Keyword.Pe, Keyword.P, Keyword.M];
     private static int? ConditionCode(Token token)
     {
-        if (!(token is ReservedWord reservedWord))
+        if (token is not ReservedWord reservedWord)
             return null;
         var code = 0;
         foreach (var r in ConditionCodes) {
@@ -1044,7 +1032,8 @@ class Assembler : Inu.Assembler.LittleEndianAssembler
         }
         ShowSyntaxError();
     }
-    private static readonly Dictionary<int, int> JumpRelativeInstructionCodes = new Dictionary<int, int>{
+    private static readonly Dictionary<int, int> JumpRelativeInstructionCodes = new()
+    {
         {Keyword.C,  0b00111000},
         {Keyword.Nc, 0b00110000},
         {Keyword.Z,  0b00101000},
@@ -1052,9 +1041,9 @@ class Assembler : Inu.Assembler.LittleEndianAssembler
     };
     private static int? JumpRelativeInstructionCode(Token token)
     {
-        if (!(token is ReservedWord reservedWord))
+        if (token is not ReservedWord reservedWord)
             return null;
-        if (!JumpRelativeInstructionCodes.TryGetValue(reservedWord.Id, out int instruction)) {
+        if (!JumpRelativeInstructionCodes.TryGetValue(reservedWord.Id, out var instruction)) {
             return null;
         }
         return instruction;
@@ -1062,7 +1051,7 @@ class Assembler : Inu.Assembler.LittleEndianAssembler
 
     private int? JumpRelativeInstructionCode()
     {
-        int? instruction = JumpRelativeInstructionCode(LastToken);
+        var instruction = JumpRelativeInstructionCode(LastToken);
         if (instruction == null) { return null; }
         NextToken();
         return instruction;
@@ -1072,10 +1061,10 @@ class Assembler : Inu.Assembler.LittleEndianAssembler
      */
     private void JumpRelativeInstruction()
     {
-        Token operand = NextToken();
+        var operand = NextToken();
 
-        Token condition = operand;
-        int? instruction = JumpRelativeInstructionCode();
+        var condition = operand;
+        var instruction = JumpRelativeInstructionCode();
         if (instruction != null) {
             operand = AcceptReservedWord(',');
         }
@@ -1084,7 +1073,7 @@ class Assembler : Inu.Assembler.LittleEndianAssembler
             instruction = 0b00011000;
         }
 
-        if (RelativeOffset(out var address, out int offset)) {
+        if (RelativeOffset(out var address, out var offset)) {
             // JR
             WriteByte(instruction.Value);
             WriteByte(offset);
@@ -1095,13 +1084,12 @@ class Assembler : Inu.Assembler.LittleEndianAssembler
             if (conditionCode != null) {
                 // JP cc,nn
                 WriteByte(0b11000010 | (conditionCode.Value << 3));
-                WriteWord(operand, address);
             }
             else {
                 //	JP nn
                 WriteByte(0b11000011);
-                WriteWord(operand, address);
             }
+            WriteWord(operand, address);
         }
     }
     /**
@@ -1109,8 +1097,8 @@ class Assembler : Inu.Assembler.LittleEndianAssembler
      */
     private void DecrementJumpRelativeInstruction()
     {
-        Token operand = NextToken();
-        if (RelativeOffset(out var address, out int offset)) {
+        var operand = NextToken();
+        if (RelativeOffset(out var address, out var offset)) {
             // DJNZ e
             WriteByte(0b00010000);
             WriteByte(offset);
@@ -1126,8 +1114,8 @@ class Assembler : Inu.Assembler.LittleEndianAssembler
     }
     private void ConditionalJump(Address address)
     {
-        Token condition = LastToken;
-        int? instruction = JumpRelativeInstructionCode(LastToken);
+        var condition = LastToken;
+        var instruction = JumpRelativeInstructionCode(LastToken);
         if (instruction != null) {
             if (!address.IsUndefined()) {
                 int offset = RelativeOffset(address);
@@ -1150,11 +1138,11 @@ class Assembler : Inu.Assembler.LittleEndianAssembler
     }
     private void NegatedConditionalJump(Address address)
     {
-        Token condition = LastToken;
+        var condition = LastToken;
         int? instruction;
         if (!address.IsUndefined() && (instruction = JumpRelativeInstructionCode(LastToken)) != null) {
             instruction ^= 0b00001000;  // negate condition
-            int offset = RelativeOffset(address);
+            var offset = RelativeOffset(address);
             if (IsRelativeOffsetInRange(offset)) {
                 NextToken();
                 // JR !cc, else
@@ -1175,7 +1163,7 @@ class Assembler : Inu.Assembler.LittleEndianAssembler
     private void UnconditionalJump(Address address)
     {
         if (!address.IsUndefined()) {
-            int offset = RelativeOffset(address);
+            var offset = RelativeOffset(address);
             if (IsRelativeOffsetInRange(offset)) {
                 // JR endif
                 WriteByte(0b00011000);
@@ -1188,13 +1176,13 @@ class Assembler : Inu.Assembler.LittleEndianAssembler
     }
     private void StartIf(IfBlock block)
     {
-        Address address = SymbolAddress(block.ElseId);
+        var address = SymbolAddress(block.ElseId);
         NegatedConditionalJump(address);
     }
     private void IfStatement()
     {
         NextToken();
-        IfBlock block = NewIfBlock();
+        var block = NewIfBlock();
         StartIf(block);
     }
     private void ElseStatement()
@@ -1204,7 +1192,7 @@ class Assembler : Inu.Assembler.LittleEndianAssembler
                 ShowError(LastToken.Position, "Multiple ELSE statement.");
             }
 
-            Address address = SymbolAddress(block.EndId);
+            var address = SymbolAddress(block.EndId);
             UnconditionalJump(address);
             DefineSymbol(block.ConsumeElse(), CurrentAddress);
         }
@@ -1224,13 +1212,9 @@ class Assembler : Inu.Assembler.LittleEndianAssembler
     }
     private void EndIfStatement()
     {
-        if (LastBlock() is IfBlock block) {
-            if (block.ElseId <= 0) {
-                DefineSymbol(block.EndId, CurrentAddress);
-            }
-            else {
-                DefineSymbol(block.ConsumeElse(), CurrentAddress);
-            }
+        if (LastBlock() is IfBlock block)
+        {
+            DefineSymbol(block.ElseId <= 0 ? block.EndId : block.ConsumeElse(), CurrentAddress);
             EndBlock();
         }
         else {
@@ -1241,14 +1225,14 @@ class Assembler : Inu.Assembler.LittleEndianAssembler
 
     private void DoStatement()
     {
-        WhileBlock block = NewWhileBlock();
+        var block = NewWhileBlock();
         DefineSymbol(block.BeginId, CurrentAddress);
         NextToken();
     }
     private void WhileStatement()
     {
         NextToken();
-        if (!(LastBlock() is WhileBlock block)) {
+        if (LastBlock() is not WhileBlock block) {
             ShowNoStatementError(LastToken, "WHILE");
             NextToken();
             return;
@@ -1285,7 +1269,7 @@ class Assembler : Inu.Assembler.LittleEndianAssembler
     }
     private void WNzStatement()
     {
-        if (!(LastBlock() is WhileBlock block)) {
+        if (LastBlock() is not WhileBlock block) {
             ShowNoStatementError(LastToken, "WHILE");
         }
         else {
@@ -1295,7 +1279,7 @@ class Assembler : Inu.Assembler.LittleEndianAssembler
             var address = SymbolAddress(block.BeginId);
             EndBlock();
             if (!address.IsUndefined()) {
-                int offset = RelativeOffset(address);
+                var offset = RelativeOffset(address);
                 if (IsRelativeOffsetInRange(offset)) {
                     // DJNZ e
                     WriteByte(0b00010000);
@@ -1309,7 +1293,7 @@ class Assembler : Inu.Assembler.LittleEndianAssembler
             WriteByte(0b11000010);
             WriteWord(LastToken, address);
         }
-        exit:
+    exit:
         NextToken();
     }
     /**
@@ -1317,7 +1301,7 @@ class Assembler : Inu.Assembler.LittleEndianAssembler
      */
     private void CallInstruction()
     {
-        Token operand = NextToken();
+        var operand = NextToken();
 
         var conditionCode = ConditionCode();
         if (conditionCode != null) {
@@ -1383,7 +1367,7 @@ class Assembler : Inu.Assembler.LittleEndianAssembler
     /**
      * "IM".
      */
-    private static readonly int[] InterruptModeInstructions = { 0b01000110, 0b01010110, 0b01011110 };
+    private static readonly int[] InterruptModeInstructions = [0b01000110, 0b01010110, 0b01011110];
     private void InterruptModeInstruction()
     {
         var operand = NextToken();
@@ -1487,29 +1471,30 @@ class Assembler : Inu.Assembler.LittleEndianAssembler
         }
     }
 
-    private static readonly Dictionary<int, Action<Assembler>> Actions = new Dictionary<int, Action<Assembler>> {
-        {Keyword.Ld, (Assembler a)=>{a.LoadInstruction(); }    },
-        {Keyword.Ex, (Assembler a)=>{a.ExchangeInstruction(); } },
-        {Keyword.Push, (Assembler a)=>{a.PushInstruction(); }},
-        {Keyword.Pop, (Assembler a)=>{a.PopInstruction(); }},
-        {Keyword.Add, (Assembler a)=>{a.AddInstruction(); }},
-        {Keyword.Jp, (Assembler a)=>{a.JumpInstruction(); }},
-        {Keyword.Jr, (Assembler a)=>{a.JumpRelativeInstruction(); }},
-        {Keyword.DjNz, (Assembler a)=>{a.DecrementJumpRelativeInstruction(); }},
-        {Keyword.Call, (Assembler a)=>{a.CallInstruction(); }},
-        {Keyword.Ret, (Assembler a)=>{a.ReturnInstruction(); }},
-        {Keyword.Rst, (Assembler a)=>{a.RestartInstruction(); }},
-        {Keyword.Im, (Assembler a)=>{a.InterruptModeInstruction(); }},
-        {Keyword.In, (Assembler a)=>{a.InputInstruction(); }},
-        {Keyword.Out,(Assembler a)=>{a.OutputInstruction(); }},
-        {Keyword.If, (Assembler a)=>{a.IfStatement(); }},
-        {Keyword.Else, (Assembler a)=>{a.ElseStatement(); }},
-        {Keyword.EndIf,(Assembler a)=>{a.EndIfStatement(); }},
-        {Keyword.ElseIf, (Assembler a)=>{a.ElseIfStatement(); }},
-        {Keyword.Do, (Assembler a)=>{a.DoStatement(); }},
-        {Keyword.While, (Assembler a)=>{a.WhileStatement(); }},
-        {Keyword.WEnd, (Assembler a)=>{a.WEndStatement(); }},
-        {Keyword.DWNz, (Assembler a)=>{a.WNzStatement(); }},
+    private static readonly Dictionary<int, Action<Assembler>> Actions = new()
+    {
+        {Keyword.Ld, a => { a.LoadInstruction(); }    },
+        {Keyword.Ex, a => { a.ExchangeInstruction(); } },
+        {Keyword.Push, a => { a.PushInstruction(); }},
+        {Keyword.Pop, a => { a.PopInstruction(); }},
+        {Keyword.Add, a => { a.AddInstruction(); }},
+        {Keyword.Jp, a => { a.JumpInstruction(); }},
+        {Keyword.Jr, a => { a.JumpRelativeInstruction(); }},
+        {Keyword.DjNz, a => { a.DecrementJumpRelativeInstruction(); }},
+        {Keyword.Call, a => { a.CallInstruction(); }},
+        {Keyword.Ret, a => { a.ReturnInstruction(); }},
+        {Keyword.Rst, a => { a.RestartInstruction(); }},
+        {Keyword.Im, a => { a.InterruptModeInstruction(); }},
+        {Keyword.In, a => { a.InputInstruction(); }},
+        {Keyword.Out,a => { a.OutputInstruction(); }},
+        {Inu.Assembler.Keyword.If, a => { a.IfStatement(); }},
+        {Inu.Assembler.Keyword.Else, a => { a.ElseStatement(); }},
+        {Inu.Assembler.Keyword.EndIf,a => { a.EndIfStatement(); }},
+        {Inu.Assembler.Keyword.ElseIf, a => { a.ElseIfStatement(); }},
+        {Inu.Assembler.Keyword.Do, a => { a.DoStatement(); }},
+        {Inu.Assembler.Keyword.While, a => { a.WhileStatement(); }},
+        {Inu.Assembler.Keyword.WEnd, a=>{a.WEndStatement(); }},
+        {Keyword.DWNz, a=>{a.WNzStatement(); }},
     };
     protected override bool Instruction()
     {

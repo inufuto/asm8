@@ -4,7 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace Inu.Assembler.Tlcs900;
 
-internal class Assembler() : LittleEndianAssembler(new Tokenizer())
+internal class Assembler(int version) : LittleEndianAssembler(new Tokenizer(version))
 {
     private int? ConstantExpression()
     {

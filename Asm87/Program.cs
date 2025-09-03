@@ -12,22 +12,29 @@ namespace Inu.Assembler.MuCom87
         public static int Main(string[] args)
         {
             var cpuType = CpuType.MuPd7800;
+            var version=1;
             var normalArgument = new NormalArgument(args, (option, value) =>
             {
-                cpuType = option switch
+                switch (option)
                 {
-                    "7801" => CpuType.MuPd7800,
-                    "7805" => CpuType.MuPd7805,
-                    _ => cpuType
-                };
+                    case "7801":
+                        cpuType = CpuType.MuPd7800;
+                        break;
+                    case "7805":
+                        cpuType = CpuType.MuPd7805;
+                        break;
+                    case "V2":
+                        version = 2;
+                        break;
+                }
                 return false;
             });
 
             Assembler assembler;
             if (cpuType == CpuType.MuPd7805)
-                assembler = new MuPD7805.Assembler();
+                assembler = new MuPD7805.Assembler(version);
             else
-                assembler = new MuPD7800.Assembler();
+                assembler = new MuPD7800.Assembler(version);
             return assembler.Main(normalArgument);
         }
     }

@@ -4,13 +4,9 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace Inu.Assembler.HD61700;
 
-internal class Assembler : Inu.Assembler.LittleEndianAssembler
+internal class Assembler(int version) : Inu.Assembler.LittleEndianAssembler(new Tokenizer(version))
 {
     public const int MainRegisterCount = 32;
-
-
-
-    public Assembler() : base(new Tokenizer()) { }
 
 
     private int? ParseMainRegister()

@@ -5,7 +5,7 @@ using Inu.Language;
 
 namespace Inu.Assembler.Wdc65c02;
 
-internal class Assembler() : Mos6502.Assembler(new Tokenizer())
+internal class Assembler(int version) : Mos6502.Assembler(new Tokenizer(version),version)
 {
     protected override bool Instruction()
     {
@@ -181,7 +181,7 @@ internal class Assembler() : Mos6502.Assembler(new Tokenizer())
         var (zeroPage, absolute) = AddressSize();
         var value = Expression();
         if (value != null) {
-            if (value.IsConst() && !zeroPage && (!value.IsByte() || absolute)) {
+            if (value.IsConst() && !zeroPage && (!IsByte(value) || absolute)) {
                 ShowInvalidAddressingMode(token);
             }
         }

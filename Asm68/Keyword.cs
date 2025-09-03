@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using Inu.Language;
 
 namespace Inu.Assembler.Mc6800
 {
