@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 
 namespace Inu.Assembler;
 
@@ -73,8 +74,12 @@ public abstract class Assembler : TokenReader
 
     protected Symbol? FindSymbol(SymbolKey symbolKey)
     {
-        if (!@object.Symbols.TryGetValue(symbolKey, out var symbol)) return null;
-        symbol.Address.Parenthesized = false;
+        if (@object.Symbols.TryGetValue(symbolKey, out var symbol))
+        {
+            symbol.Address.Parenthesized = false;
+            return symbol;
+        }
+        symbol = @object.Symbols.Values.FirstOrDefault(s => s.Public && s.Id == symbolKey.Id);
         return symbol;
     }
 
