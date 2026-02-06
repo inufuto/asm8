@@ -1,8 +1,8 @@
-﻿using System.Collections.Generic;
+﻿using Inu.Assembler;
+using Inu.Language;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using Inu.Assembler;
-using Inu.Language;
 
 namespace Inu.Library
 {
@@ -33,7 +33,7 @@ namespace Inu.Library
 
         public Object? NameToObject(string name)
         {
-            return symbols.TryGetValue(name, out var obj) ? obj : null;
+            return symbols.GetValueOrDefault(name);
         }
 
         public void Add(Object obj)

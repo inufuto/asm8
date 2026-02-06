@@ -69,8 +69,7 @@ public class Address : IComparable<Address>
             Part = (AddressPart)stream.ReadByte();
         }
 
-        if (Part == AddressPart.TripleByte && Value >= 0x8000)
-        {
+        if (Part == AddressPart.TripleByte && Value >= 0x8000) {
             Value -= 0x10000;
         }
     }

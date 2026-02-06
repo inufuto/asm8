@@ -1,9 +1,8 @@
-﻿using System.Collections.Generic;
+﻿using Inu.Language;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Runtime.CompilerServices;
-using Inu.Language;
 
 namespace Inu.Assembler;
 
@@ -45,8 +44,7 @@ public class Object(string? fileName)
         var ids = publicIds.Union(externalIds).ToHashSet();
 
         stream.WriteWord(ids.Count);
-        foreach (var symbol in ids.Select(id => Symbols.Values.First(s => s.Id == id)))
-        {
+        foreach (var symbol in ids.Select(id => Symbols.Values.First(s => s.Id == id))) {
             symbol.Write(stream);
         }
 
@@ -75,7 +73,7 @@ public class Object(string? fileName)
         {
             var n = stream.ReadWord();
             for (var i = 0; i < n; ++i) {
-                var symbol = new Symbol(stream);
+                var symbol = new Symbol(stream) { Public = true };
                 Symbols[symbol.Key] = symbol;
             }
         }
